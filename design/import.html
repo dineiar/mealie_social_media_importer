@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Import a recipe · Mealie Social Media Importer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Geist:wght@400..600&family=Geist+Mono:wght@400..500&display=swap">
+  <style>
+    /* ---------- Tokens ---------- */
+    :root {
+      --accent: #C2410C;
+      --accent-soft: #FBEAE2;
+      --accent-ink: #97330A;
+
+      --bg: #FAFAF9;
+      --surface: #FFFFFF;
+      --surface-2: #F5F5F4;
+      --thumb: #F0EEEC;
+
+      --border: #E7E5E4;
+      --border-soft: #F0EEEC;
+      --border-strong: #D6D3D1;
+      --border-dashed: #A8A29E;
+
+      --text: #1C1917;
+      --text-2: #44403C;
+      --muted: #57534E;
+      --subtle: #78716C;
+
+      --ok: #166534;
+      --ok-bg: #ECFDF3;
+      --err: #B91C1C;
+      --err-bg: #FEF2F2;
+      --err-ring: #FEE2E2;
+
+      --font-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+      --font-body: 'Geist', ui-sans-serif, system-ui, sans-serif;
+      --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+      --radius-sm: 10px;
+      --radius: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 20px;
+
+      --shadow-card: 0 1px 2px rgba(28, 25, 23, .04), 0 16px 40px -16px rgba(28, 25, 23, .12);
+      --shadow-raised: 0 1px 2px rgba(28, 25, 23, .04), 0 10px 28px -14px rgba(28, 25, 23, .14);
+    }
+
+    /* ---------- Base ---------- */
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3, h4, p { margin: 0; }
+    ul, ol { list-style: none; margin: 0; padding: 0; }
+    a { color: #9A3412; }
+    a:hover { color: #7C2D12; }
+    :focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+    input::placeholder { color: var(--subtle); }
+    svg { flex: none; }
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin { animation: spin .9s linear infinite; }
+    @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.4s; } }
+
+    /* ---------- Brand ---------- */
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .brand__mark { width: 32px; height: 32px; color: var(--accent); }
+    .brand__name {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 18px;
+      line-height: 1.15;
+      letter-spacing: -.01em;
+    }
+
+    /* ---------- Buttons ---------- */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 0 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--text);
+      font: 600 14px/1 var(--font-body);
+      text-decoration: none;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .btn:hover { background: var(--surface-2); color: var(--text); }
+    .btn--primary {
+      height: 52px;
+      padding: 0 28px;
+      border: 0;
+      border-radius: var(--radius);
+      background: var(--accent);
+      color: #FFFFFF;
+      font-size: 16px;
+    }
+    .btn--primary:hover { background: var(--accent-ink); color: #FFFFFF; }
+    .btn--primary[disabled] { background: var(--accent); cursor: progress; }
+    .btn--dark { border-color: var(--text); background: var(--text); color: #FFFFFF; }
+    .btn--dark:hover { background: #000000; color: #FFFFFF; }
+    .btn--ghost { border-color: transparent; background: transparent; color: var(--text-2); }
+    .btn--icon { width: 44px; padding: 0; color: var(--text-2); }
+    .btn--block { width: 100%; }
+
+    /* ---------- Forms ---------- */
+    .field { display: flex; flex-direction: column; gap: 8px; }
+    .field__label { font-size: 14px; font-weight: 600; }
+    .field__hint { font-size: 13px; line-height: 1.45; color: var(--subtle); }
+    .field__error {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      color: var(--err);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .field__error svg { margin-top: 1px; }
+
+    .input-wrap { position: relative; display: flex; align-items: center; }
+    .input {
+      width: 100%;
+      height: 52px;
+      padding: 0 16px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      font: 400 16px var(--font-body);
+    }
+    .input--mono { font-family: var(--font-mono); font-size: 15px; }
+    .input--with-action { padding-right: 52px; }
+    .input--with-icon { padding-left: 46px; }
+    .input[aria-invalid="true"] { border: 1.5px solid var(--err); box-shadow: 0 0 0 4px var(--err-ring); }
+    .input[readonly] { background: var(--surface-2); color: var(--muted); }
+    .input-wrap__icon { position: absolute; left: 16px; color: var(--subtle); pointer-events: none; }
+    .input-wrap__action {
+      position: absolute;
+      right: 4px;
+      min-height: 44px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .check { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; cursor: pointer; }
+    .check input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--accent); }
+    .check__label { display: block; font-size: 15px; font-weight: 500; }
+    .check__hint { display: block; margin-top: 2px; font-size: 13px; line-height: 1.4; color: var(--subtle); }
+
+    /* ---------- Login page ---------- */
+    .login { min-height: 100vh; display: flex; flex-direction: column; }
+    .login__header { width: 100%; max-width: 1200px; margin: 0 auto; padding: 20px 24px; }
+    .login__main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px 16px 96px; }
+
+    .card {
+      width: 100%;
+      max-width: 440px;
+      padding: 40px 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-card);
+    }
+    .card__head { display: flex; flex-direction: column; gap: 16px; }
+    .card__icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--accent-soft);
+      color: var(--accent-ink);
+    }
+    .card__title {
+      font-family: var(--font-display);
+      font-size: 32px;
+      line-height: 1.1;
+      font-weight: 650;
+      letter-spacing: -.02em;
+    }
+    .card__text { margin-top: 8px; color: var(--muted); text-wrap: pretty; }
+    .login-form { display: flex; flex-direction: column; gap: 20px; }
+
+    /* ---------- App header ---------- */
+    .site-header { background: var(--surface); border-bottom: 1px solid var(--border); }
+    .site-header__inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .account { flex: none; display: flex; align-items: center; gap: 14px; }
+    .account__user { display: flex; align-items: center; gap: 10px; }
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--accent-soft);
+      color: var(--accent-ink);
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .account__names { display: flex; flex-direction: column; line-height: 1.25; }
+    .account__name { font-size: 14px; font-weight: 600; }
+    .account__handle { font-size: 13px; color: var(--subtle); }
+    .account__divider { width: 1px; height: 28px; background: var(--border); }
+    .btn--logoff { padding: 0 14px; color: var(--text-2); font-weight: 500; }
+
+    /* ---------- Import page ---------- */
+    .page {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 56px 24px 96px;
+      display: flex;
+      flex-direction: column;
+      gap: 48px;
+    }
+    .section { display: flex; flex-direction: column; gap: 24px; }
+    .page-title {
+      font-family: var(--font-display);
+      font-size: 40px;
+      line-height: 1.1;
+      font-weight: 650;
+      letter-spacing: -.025em;
+    }
+    .lead { margin-top: 10px; max-width: 600px; font-size: 17px; line-height: 1.55; color: var(--muted); text-wrap: pretty; }
+
+    .url-form__row { display: flex; gap: 10px; }
+    .url-form .input-wrap { flex: 1; min-width: 0; }
+    .url-form .input { height: 56px; }
+    .url-form .btn--primary { height: 56px; }
+
+    /* Sources */
+    .sources {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+    }
+    .sources__title { font-size: 14px; font-weight: 600; }
+    .sources__row { display: flex; align-items: center; gap: 12px; }
+    .sources__label { flex: none; width: 104px; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+    .sources__label--ready { color: var(--ok); }
+    .sources__label--off { color: var(--muted); }
+    .sources__list { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .sources__note { padding-top: 12px; border-top: 1px solid var(--border-soft); font-size: 13px; color: var(--subtle); }
+
+    .site {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .site svg { width: 26px; height: 26px; }
+    .site--off { background: var(--bg); border: 1px dashed var(--border-dashed); }
+    .site--off svg { width: 24px; height: 24px; filter: grayscale(1); opacity: .45; }
+    .site--wide { width: auto; padding: 0 14px 0 12px; gap: 8px; color: var(--text-2); font-size: 14px; }
+    .site--wide svg { width: 20px; height: 20px; }
+
+    /* Recent imports */
+    .section-head__title {
+      font-family: var(--font-display);
+      font-size: 22px;
+      line-height: 1.2;
+      font-weight: 650;
+      letter-spacing: -.01em;
+    }
+    .section-head__text { margin-top: 4px; font-size: 14px; color: var(--subtle); }
+    .section--recent { gap: 16px; }
+
+    .imports { display: flex; flex-direction: column; gap: 12px; }
+    .import {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+    }
+    .import--raised { gap: 18px; box-shadow: var(--shadow-raised); }
+
+    .import__head {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      column-gap: 16px;
+      row-gap: 4px;
+      align-items: start;
+    }
+    .import__head--center { align-items: center; }
+    .thumb {
+      width: 56px;
+      height: 56px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--thumb);
+      color: var(--subtle);
+    }
+    .import__meta { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+    .import__titleline { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+    .import__title { font-size: 16px; font-weight: 600; }
+    .import__url {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--subtle);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .import__note { display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 1.4; color: var(--subtle); }
+    .import__actions { display: flex; align-items: center; gap: 8px; }
+    .import__body { margin-left: 72px; display: flex; flex-direction: column; gap: 14px; }
+    .import__reason { font-size: 14px; line-height: 1.5; color: var(--text-2); text-wrap: pretty; }
+
+    .timer { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--subtle); white-space: nowrap; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 24px;
+      padding: 0 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge--progress { background: var(--accent-soft); color: var(--accent-ink); }
+    .badge--ok { background: var(--ok-bg); color: var(--ok); }
+    .badge--error { background: var(--err-bg); color: var(--err); }
+
+    /* Steps */
+    .steps { display: flex; flex-direction: column; gap: 14px; }
+    .step { display: flex; align-items: flex-start; gap: 12px; }
+    .step__icon { width: 20px; height: 20px; margin-top: 1px; }
+    .step__text { display: flex; flex-direction: column; gap: 2px; font-size: 15px; }
+    .step__detail { font-size: 13px; line-height: 1.4; color: var(--subtle); }
+    .step--active .step__icon { color: var(--accent); }
+    .step--active .step__label,
+    .step--failed .step__label { font-weight: 600; }
+    .step--pending .step__label { color: var(--subtle); }
+    .step--failed .step__detail { color: var(--err); }
+
+    /* Downloads */
+    .downloads { display: flex; flex-wrap: wrap; gap: 8px; }
+    .download {
+      min-height: 44px;
+      padding: 6px 14px 6px 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      text-decoration: none;
+    }
+    .download:hover { background: var(--surface-2); color: var(--text); }
+    .download svg { color: var(--text-2); }
+    .download__text { display: flex; flex-direction: column; line-height: 1.25; }
+    .download__name { font-size: 14px; font-weight: 600; }
+    .download__size { font-size: 12px; color: var(--subtle); }
+
+    /* Manual-import panel */
+    .panel {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .panel__title { font-size: 15px; font-weight: 600; }
+    .panel__text { margin-top: 4px; font-size: 14px; color: var(--muted); text-wrap: pretty; }
+    .panel__actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 16px; border-top: 1px solid var(--border); }
+
+    /* ---------- Phone ---------- */
+    @media (max-width: 640px) {
+      .login__header { padding: 16px; }
+      .login__header .brand { gap: 8px; }
+      .login__header .brand__mark { width: 28px; height: 28px; }
+      .login__header .brand__name { font-size: 17px; }
+      .login__main { align-items: flex-start; padding: 24px 16px 32px; }
+      .card { padding: 28px 22px; gap: 24px; }
+      .card__head { gap: 14px; }
+      .card__icon { width: 44px; height: 44px; border-radius: 13px; }
+      .card__title { font-size: 28px; }
+      .card__text { font-size: 15px; }
+      .login-form { gap: 18px; }
+
+      .site-header__inner { padding: 10px 16px; gap: 8px; }
+      .site-header .brand { gap: 8px; }
+      .site-header .brand__mark { width: 28px; height: 28px; }
+      .site-header .brand__name { max-width: 8.5em; font-size: 15px; }
+      .account { gap: 10px; }
+      .account__user { gap: 8px; }
+      .avatar { width: 32px; height: 32px; font-size: 14px; }
+      .account__name, .account__divider, .btn--logoff svg { display: none; }
+      .account__handle { font-size: 14px; font-weight: 600; color: var(--text); }
+      .btn--logoff { padding: 0 12px; }
+
+      .page { padding: 28px 16px 48px; gap: 36px; }
+      .section { gap: 20px; }
+      .section--recent { gap: 16px; }
+      .page-title { font-size: 30px; }
+      .lead { margin-top: 8px; font-size: 15px; line-height: 1.5; }
+      .url-form__row { flex-direction: column; }
+      .url-form .input, .url-form .btn--primary { height: 52px; }
+
+      .sources { padding: 16px; gap: 12px; }
+      .sources__row { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .sources__label { width: auto; }
+
+      .section-head__title { font-size: 21px; }
+      .import { padding: 16px; }
+      .import__head { grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; }
+      .thumb { width: 48px; height: 48px; border-radius: 11px; }
+      .thumb svg { width: 22px; height: 22px; }
+      .import__aside { grid-column: 2; }
+      .import__aside--actions { grid-column: 1 / -1; margin-top: 10px; }
+      .import__aside--actions .btn:first-child { flex: 1; }
+      .import__body { margin-left: 0; }
+
+      .panel { padding: 16px; gap: 14px; }
+      .panel .downloads { flex-direction: column; }
+      .panel .download { min-height: 52px; padding: 8px 14px 8px 12px; gap: 12px; }
+      .panel .download__text { flex: 1; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; }
+      .panel .download__name { font-size: 15px; }
+      .panel .download__size { font-size: 13px; }
+      .panel__actions { flex-wrap: nowrap; }
+      .panel__actions .btn { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+<header class="site-header">
+  <div class="site-header__inner">
+    <div class="brand">
+      <svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="currentColor"/><path d="M16 7.5v10.5m-4.2-4.2 4.2 4.2 4.2-4.2M9 20.5c0 2.9 3.1 5 7 5s7-2.1 7-5" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="brand__name">Mealie Social Media Importer</span>
+    </div>
+    <div class="account">
+      <div class="account__user">
+        <span class="avatar" aria-hidden="true">A</span>
+        <span class="account__names">
+          <span class="account__name">Ana Souza</span>
+          <span class="account__handle">@ana</span>
+        </span>
+      </div>
+      <span class="account__divider" aria-hidden="true"></span>
+      <button class="btn btn--logoff" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5M5 12h11"/></svg>
+        Log off
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+  <section class="section" aria-labelledby="import-title">
+    <div>
+      <h1 class="page-title" id="import-title">Import a recipe</h1>
+      <p class="lead">Paste a link to a post or video. Mealie turns it into a recipe, and the photo or video is attached to it.</p>
+    </div>
+
+    <form class="url-form field" method="post" action="">
+      <label class="field__label" for="post-url">Post or video link</label>
+      <div class="url-form__row">
+        <div class="input-wrap">
+          <svg class="input-wrap__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4l-1.1 1.1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4l1.1-1.1"/></svg>
+          <input class="input input--with-icon" id="post-url" name="url" type="url" placeholder="https://www.tiktok.com/@…/video/…" required>
+        </div>
+        <button class="btn btn--primary" type="submit">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/><path d="M12 4v11m-4-4 4 4 4-4"/></svg>
+          Import
+        </button>
+      </div>
+    </form>
+
+    <section class="sources" aria-labelledby="sources-title">
+      <h2 class="sources__title" id="sources-title">Where you can import from</h2>
+      <div class="sources__row">
+        <span class="sources__label sources__label--ready" id="sources-ready">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12.3 2.7 2.7L16 9.6"/></svg>
+          Ready
+        </span>
+        <ul class="sources__list" aria-labelledby="sources-ready">
+          <li class="site"><svg viewBox="0 0 256 180" role="img" aria-label="YouTube"><title>YouTube</title><path fill="red" d="M250.346 28.075A32.18 32.18 0 0 0 227.69 5.418C207.824 0 127.87 0 127.87 0S47.912.164 28.046 5.582A32.18 32.18 0 0 0 5.39 28.24c-6.009 35.298-8.34 89.084.165 122.97a32.18 32.18 0 0 0 22.656 22.657c19.866 5.418 99.822 5.418 99.822 5.418s79.955 0 99.82-5.418a32.18 32.18 0 0 0 22.657-22.657c6.338-35.348 8.291-89.1-.164-123.134"/><path fill="#fff" d="m102.421 128.06l66.328-38.418l-66.328-38.418z"/></svg></li>
+          <li class="site"><svg viewBox="0 0 256 290" role="img" aria-label="TikTok"><title>TikTok</title><path fill="#ff004f" d="M189.72 104.421c18.678 13.345 41.56 21.197 66.273 21.197v-47.53a67 67 0 0 1-13.918-1.456v37.413c-24.711 0-47.59-7.851-66.272-21.195v96.996c0 48.523-39.356 87.855-87.9 87.855c-18.113 0-34.949-5.473-48.934-14.86c15.962 16.313 38.222 26.432 62.848 26.432c48.548 0 87.905-39.332 87.905-87.857v-96.995zm17.17-47.952c-9.546-10.423-15.814-23.893-17.17-38.785v-6.113h-13.189c3.32 18.927 14.644 35.097 30.358 44.898M69.673 225.607a40 40 0 0 1-8.203-24.33c0-22.192 18.001-40.186 40.21-40.186a40.3 40.3 0 0 1 12.197 1.883v-48.593c-4.61-.631-9.262-.9-13.912-.801v37.822a40.3 40.3 0 0 0-12.203-1.882c-22.208 0-40.208 17.992-40.208 40.187c0 15.694 8.997 29.281 22.119 35.9"/><path d="M175.803 92.849c18.683 13.344 41.56 21.195 66.272 21.195V76.631c-13.794-2.937-26.005-10.141-35.186-20.162c-15.715-9.802-27.038-25.972-30.358-44.898h-34.643v189.843c-.079 22.132-18.049 40.052-40.21 40.052c-13.058 0-24.66-6.221-32.007-15.86c-13.12-6.618-22.118-20.206-22.118-35.898c0-22.193 18-40.187 40.208-40.187c4.255 0 8.356.662 12.203 1.882v-37.822c-47.692.985-86.047 39.933-86.047 87.834c0 23.912 9.551 45.589 25.053 61.428c13.985 9.385 30.82 14.86 48.934 14.86c48.545 0 87.9-39.335 87.9-87.857z"/><path fill="#00f2ea" d="M242.075 76.63V66.516a66.3 66.3 0 0 1-35.186-10.047a66.47 66.47 0 0 0 35.186 20.163M176.53 11.57a68 68 0 0 1-.728-5.457V0h-47.834v189.845c-.076 22.13-18.046 40.05-40.208 40.05a40.06 40.06 0 0 1-18.09-4.287c7.347 9.637 18.949 15.857 32.007 15.857c22.16 0 40.132-17.918 40.21-40.05V11.571zM99.966 113.58v-10.769a89 89 0 0 0-12.061-.818C39.355 101.993 0 141.327 0 189.845c0 30.419 15.467 57.227 38.971 72.996c-15.502-15.838-25.053-37.516-25.053-61.427c0-47.9 38.354-86.848 86.048-87.833"/></svg></li>
+          <li class="site"><svg viewBox="0 0 256 256" role="img" aria-label="Pinterest"><title>Pinterest</title><path fill="#cb1f27" d="M0 128.002c0 52.414 31.518 97.442 76.619 117.239c-.36-8.938-.064-19.668 2.228-29.393c2.461-10.391 16.47-69.748 16.47-69.748s-4.089-8.173-4.089-20.252c0-18.969 10.994-33.136 24.686-33.136c11.643 0 17.268 8.745 17.268 19.217c0 11.704-7.465 29.211-11.304 45.426c-3.207 13.578 6.808 24.653 20.203 24.653c24.252 0 40.586-31.149 40.586-68.055c0-28.054-18.895-49.052-53.262-49.052c-38.828 0-63.017 28.956-63.017 61.3c0 11.152 3.288 19.016 8.438 25.106c2.368 2.797 2.697 3.922 1.84 7.134c-.614 2.355-2.024 8.025-2.608 10.272c-.852 3.242-3.479 4.401-6.409 3.204c-17.884-7.301-26.213-26.886-26.213-48.902c0-36.361 30.666-79.961 91.482-79.961c48.87 0 81.035 35.364 81.035 73.325c0 50.213-27.916 87.726-69.066 87.726c-13.819 0-26.818-7.47-31.271-15.955c0 0-7.431 29.492-9.005 35.187c-2.714 9.869-8.026 19.733-12.883 27.421a127.9 127.9 0 0 0 36.277 5.249c70.684 0 127.996-57.309 127.996-128.005C256.001 57.309 198.689 0 128.005 0C57.314 0 0 57.309 0 128.002"/></svg></li>
+          <li class="site"><svg viewBox="0 0 256 256" role="img" aria-label="Reddit"><title>Reddit</title><circle cx="128" cy="128" r="128" fill="#ff4500"/><path fill="#fff" d="M213.15 129.22c0-10.376-8.391-18.617-18.617-18.617a18.74 18.74 0 0 0-12.97 5.189c-12.818-9.157-30.368-15.107-49.9-15.87l8.544-39.981l27.773 5.95c.307 7.02 6.104 12.667 13.278 12.667c7.324 0 13.275-5.95 13.275-13.278c0-7.324-5.95-13.275-13.275-13.275c-5.188 0-9.768 3.052-11.904 7.478l-30.976-6.562c-.916-.154-1.832 0-2.443.458c-.763.458-1.22 1.22-1.371 2.136l-9.464 44.558c-19.837.612-37.692 6.562-50.662 15.872a18.74 18.74 0 0 0-12.971-5.188c-10.377 0-18.617 8.391-18.617 18.617c0 7.629 4.577 14.037 10.988 16.939a33.6 33.6 0 0 0-.458 5.646c0 28.686 33.42 52.036 74.621 52.036c41.202 0 74.622-23.196 74.622-52.036a35 35 0 0 0-.458-5.646c6.408-2.902 10.985-9.464 10.985-17.093M85.272 142.495c0-7.324 5.95-13.275 13.278-13.275c7.324 0 13.275 5.95 13.275 13.275s-5.95 13.278-13.275 13.278c-7.327.15-13.278-5.953-13.278-13.278m74.317 35.251c-9.156 9.157-26.553 9.768-31.588 9.768c-5.188 0-22.584-.765-31.59-9.768c-1.371-1.373-1.371-3.51 0-4.883c1.374-1.371 3.51-1.371 4.884 0c5.8 5.8 18.008 7.782 26.706 7.782s21.058-1.983 26.704-7.782c1.374-1.371 3.51-1.371 4.884 0c1.22 1.373 1.22 3.51 0 4.883m-2.443-21.822c-7.325 0-13.275-5.95-13.275-13.275s5.95-13.275 13.275-13.275c7.327 0 13.277 5.95 13.277 13.275c0 7.17-5.95 13.275-13.277 13.275"/></svg></li>
+          <li class="site site--wide">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3Z"/></svg>
+            Recipe websites
+          </li>
+        </ul>
+      </div>
+      <div class="sources__row">
+        <span class="sources__label sources__label--off" id="sources-off">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+          Not set up
+        </span>
+        <ul class="sources__list" aria-labelledby="sources-off">
+          <li class="site site--off"><svg viewBox="0 0 256 256" role="img" aria-label="Instagram (not set up)"><title>Instagram (not set up)</title><path fill="#0a0a08" d="M128 23.064c34.177 0 38.225.13 51.722.745c12.48.57 19.258 2.655 23.769 4.408c5.974 2.322 10.238 5.096 14.717 9.575s7.253 8.743 9.575 14.717c1.753 4.511 3.838 11.289 4.408 23.768c.615 13.498.745 17.546.745 51.723s-.13 38.226-.745 51.723c-.57 12.48-2.655 19.257-4.408 23.768c-2.322 5.974-5.096 10.239-9.575 14.718s-8.743 7.253-14.717 9.574c-4.511 1.753-11.289 3.839-23.769 4.408c-13.495.616-17.543.746-51.722.746s-38.228-.13-51.723-.746c-12.48-.57-19.257-2.655-23.768-4.408c-5.974-2.321-10.239-5.095-14.718-9.574c-4.479-4.48-7.253-8.744-9.574-14.718c-1.753-4.51-3.839-11.288-4.408-23.768c-.616-13.497-.746-17.545-.746-51.723s.13-38.225.746-51.722c.57-12.48 2.655-19.258 4.408-23.769c2.321-5.974 5.095-10.238 9.574-14.717c4.48-4.48 8.744-7.253 14.718-9.575c4.51-1.753 11.288-3.838 23.768-4.408c13.497-.615 17.545-.745 51.723-.745M128 0C93.237 0 88.878.147 75.226.77c-13.625.622-22.93 2.786-31.071 5.95c-8.418 3.271-15.556 7.648-22.672 14.764S9.991 35.738 6.72 44.155C3.555 52.297 1.392 61.602.77 75.226C.147 88.878 0 93.237 0 128s.147 39.122.77 52.774c.622 13.625 2.785 22.93 5.95 31.071c3.27 8.417 7.647 15.556 14.763 22.672s14.254 11.492 22.672 14.763c8.142 3.165 17.446 5.328 31.07 5.95c13.653.623 18.012.77 52.775.77s39.122-.147 52.774-.77c13.624-.622 22.929-2.785 31.07-5.95c8.418-3.27 15.556-7.647 22.672-14.763s11.493-14.254 14.764-22.672c3.164-8.142 5.328-17.446 5.95-31.07c.623-13.653.77-18.012.77-52.775s-.147-39.122-.77-52.774c-.622-13.624-2.786-22.929-5.95-31.07c-3.271-8.418-7.648-15.556-14.764-22.672S220.262 9.99 211.845 6.72c-8.142-3.164-17.447-5.328-31.071-5.95C167.122.147 162.763 0 128 0m0 62.27c-36.302 0-65.73 29.43-65.73 65.73s29.428 65.73 65.73 65.73c36.301 0 65.73-29.428 65.73-65.73c0-36.301-29.429-65.73-65.73-65.73m0 108.397c-23.564 0-42.667-19.103-42.667-42.667S104.436 85.333 128 85.333s42.667 19.103 42.667 42.667s-19.103 42.667-42.667 42.667m83.686-110.994c0 8.484-6.876 15.36-15.36 15.36s-15.36-6.876-15.36-15.36s6.877-15.36 15.36-15.36s15.36 6.877 15.36 15.36"/></svg></li>
+          <li class="site site--off"><svg viewBox="0 0 256 256" role="img" aria-label="Facebook (not set up)"><title>Facebook (not set up)</title><path fill="#1877f2" d="M256 128C256 57.308 198.692 0 128 0S0 57.308 0 128c0 63.888 46.808 116.843 108 126.445V165H75.5v-37H108V99.8c0-32.08 19.11-49.8 48.348-49.8C170.352 50 185 52.5 185 52.5V84h-16.14C152.959 84 148 93.867 148 103.99V128h35.5l-5.675 37H148v89.445c61.192-9.602 108-62.556 108-126.445"/><path fill="#fff" d="m177.825 165l5.675-37H148v-24.01C148 93.866 152.959 84 168.86 84H185V52.5S170.352 50 156.347 50C127.11 50 108 67.72 108 99.8V128H75.5v37H108v89.445A129 129 0 0 0 128 256a129 129 0 0 0 20-1.555V165z"/></svg></li>
+          <li class="site site--off"><svg viewBox="0 0 251 256" role="img" aria-label="X (not set up)"><title>X (not set up)</title><path d="M149.079 108.399L242.33 0h-22.098l-80.97 94.12L74.59 0H0l97.796 142.328L0 256h22.1l85.507-99.395L175.905 256h74.59L149.073 108.399zM118.81 143.58l-9.909-14.172l-78.84-112.773h33.943l63.625 91.011l9.909 14.173l82.705 118.3H186.3l-67.49-96.533z"/></svg></li>
+        </ul>
+      </div>
+      <p class="sources__note">Not set up: supported, but the server has no sign-in configured for these sites yet.</p>
+    </section>
+  </section>
+
+  <section class="section section--recent" aria-labelledby="recent-title">
+    <div>
+      <h2 class="section-head__title" id="recent-title">Recent imports</h2>
+      <p class="section-head__text">Links and media are deleted from the server when their timer runs out. No history is kept.</p>
+    </div>
+
+    <ol class="imports">
+      <!-- In progress -->
+      <li class="import import--raised" aria-busy="true">
+        <div class="import__head">
+          <span class="thumb" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9.5 4.5 2.5-4.5 2.5z"/></svg>
+          </span>
+          <div class="import__meta">
+            <div class="import__titleline">
+              <h3 class="import__title">Importing from TikTok</h3>
+              <span class="badge badge--progress">
+                <svg class="spin" width="12" height="12" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5" fill="none" stroke="currentColor" stroke-opacity=".25" stroke-width="3"/><path d="M10 2.5a7.5 7.5 0 0 1 7.5 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+                In progress
+              </span>
+            </div>
+            <span class="import__url">tiktok.com/@cookwithmara/video/7351820394</span>
+          </div>
+          <span class="import__aside timer">Started just now</span>
+        </div>
+        <div class="import__body">
+          <ol class="steps" aria-label="Import steps">
+            <li class="step step--done">
+              <svg class="step__icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#44403C"/><path d="m6 10.2 2.6 2.6L14 7.4" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span class="step__text">
+                <span class="step__label"><span class="visually-hidden">Done: </span>Downloaded the video and caption</span>
+                <span class="step__detail">MP4 · 18.2 MB · 0:48</span>
+              </span>
+            </li>
+            <li class="step step--skipped">
+              <svg class="step__icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.25" fill="none" stroke="#A8A29E" stroke-width="1.5"/><path d="M6.5 10h7" stroke="#57534E" stroke-width="1.8" stroke-linecap="round"/></svg>
+              <span class="step__text">
+                <span class="step__label"><span class="visually-hidden">Done: </span>Mealie read the caption</span>
+                <span class="step__detail">No recipe in the caption, so the audio is next.</span>
+              </span>
+            </li>
+            <li class="step step--active" aria-current="step">
+              <svg class="step__icon spin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="#E7E5E4" stroke-width="2.5"/><path d="M10 2a8 8 0 0 1 8 8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+              <span class="step__text">
+                <span class="step__label"><span class="visually-hidden">In progress: </span>Transcribing the audio…</span>
+              </span>
+            </li>
+            <li class="step step--pending">
+              <svg class="step__icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.25" fill="none" stroke="#D6D3D1" stroke-width="1.5"/></svg>
+              <span class="step__text">
+                <span class="step__label"><span class="visually-hidden">Next: </span>Create the recipe from the transcript</span>
+              </span>
+            </li>
+            <li class="step step--pending">
+              <svg class="step__icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.25" fill="none" stroke="#D6D3D1" stroke-width="1.5"/></svg>
+              <span class="step__text">
+                <span class="step__label"><span class="visually-hidden">Next: </span>Attach the video to the recipe</span>
+              </span>
+            </li>
+          </ol>
+        </div>
+      </li>
+
+      <!-- Imported -->
+      <li class="import">
+        <div class="import__head import__head--center">
+          <span class="thumb" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9.5 4.5 2.5-4.5 2.5z"/></svg>
+          </span>
+          <div class="import__meta">
+            <div class="import__titleline">
+              <h3 class="import__title">One-pan lemon orzo</h3>
+              <span class="badge badge--ok">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+                Imported
+              </span>
+            </div>
+            <span class="import__url">youtube.com/shorts/Qm3xT8vLp2c</span>
+            <span class="import__note">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>
+              Video attached · media deleted in 1 h 32 min
+            </span>
+          </div>
+          <div class="import__aside import__aside--actions import__actions">
+            <a class="btn" href="#">
+              Open in Mealie
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></svg>
+            </a>
+            <a class="btn btn--icon" href="#" download aria-label="Download media">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-4.5-4.5L12 15l4.5-4.5M5 19.5h14"/></svg>
+            </a>
+          </div>
+        </div>
+      </li>
+
+      <!-- Failed: no recipe found -->
+      <li class="import">
+        <div class="import__head">
+          <span class="thumb" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/></svg>
+          </span>
+          <div class="import__meta">
+            <div class="import__titleline">
+              <h3 class="import__title">No recipe found</h3>
+              <span class="badge badge--error">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6v7M12 18h.01"/></svg>
+                Failed
+              </span>
+            </div>
+            <span class="import__url">pinterest.com/pin/881712094356201</span>
+          </div>
+          <span class="import__aside timer">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>
+            Deleted in 48 min
+          </span>
+        </div>
+        <div class="import__body">
+          <p class="import__reason">Mealie couldn't find a recipe in this pin. Download the files to add it by hand.</p>
+          <div class="downloads">
+            <a class="download" href="#" download>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-4.5-4.5L12 15l4.5-4.5M5 19.5h14"/></svg>
+              <span class="download__text"><span class="download__name">Image</span><span class="download__size">JPG · 412 KB</span></span>
+            </a>
+            <a class="download" href="#" download>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-4.5-4.5L12 15l4.5-4.5M5 19.5h14"/></svg>
+              <span class="download__text"><span class="download__name">Text</span><span class="download__size">TXT · 2 KB</span></span>
+            </a>
+            <button class="btn btn--ghost" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/></svg>
+              Try again
+            </button>
+          </div>
+        </div>
+      </li>
+
+      <!-- Failed: Mealie unreachable -->
+      <li class="import">
+        <div class="import__head">
+          <span class="thumb" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9.5 4.5 2.5-4.5 2.5z"/></svg>
+          </span>
+          <div class="import__meta">
+            <div class="import__titleline">
+              <h3 class="import__title">Mealie didn't respond</h3>
+              <span class="badge badge--error">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6v7M12 18h.01"/></svg>
+                Failed
+              </span>
+            </div>
+            <span class="import__url">reddit.com/r/recipes/comments/1g4k2xq</span>
+          </div>
+          <span class="import__aside timer">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>
+            Deleted in 21 min
+          </span>
+        </div>
+        <div class="import__body">
+          <p class="import__reason">Your Mealie server couldn't be reached, so no recipe was created. Try again once it's back, or download the files.</p>
+          <div class="downloads">
+            <a class="download" href="#" download>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-4.5-4.5L12 15l4.5-4.5M5 19.5h14"/></svg>
+              <span class="download__text"><span class="download__name">Video</span><span class="download__size">MP4 · 9.6 MB</span></span>
+            </a>
+            <a class="download" href="#" download>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-4.5-4.5L12 15l4.5-4.5M5 19.5h14"/></svg>
+              <span class="download__text"><span class="download__name">Text</span><span class="download__size">TXT · 3 KB</span></span>
+            </a>
+            <button class="btn btn--ghost" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/></svg>
+              Try again
+            </button>
+          </div>
+        </div>
+      </li>
+    </ol>
+  </section>
+</main>
+</body>
+</html>

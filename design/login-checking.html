@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connect to Mealie · Mealie Social Media Importer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Geist:wght@400..600&family=Geist+Mono:wght@400..500&display=swap">
+  <style>
+    /* ---------- Tokens ---------- */
+    :root {
+      --accent: #C2410C;
+      --accent-soft: #FBEAE2;
+      --accent-ink: #97330A;
+
+      --bg: #FAFAF9;
+      --surface: #FFFFFF;
+      --surface-2: #F5F5F4;
+      --thumb: #F0EEEC;
+
+      --border: #E7E5E4;
+      --border-soft: #F0EEEC;
+      --border-strong: #D6D3D1;
+      --border-dashed: #A8A29E;
+
+      --text: #1C1917;
+      --text-2: #44403C;
+      --muted: #57534E;
+      --subtle: #78716C;
+
+      --ok: #166534;
+      --ok-bg: #ECFDF3;
+      --err: #B91C1C;
+      --err-bg: #FEF2F2;
+      --err-ring: #FEE2E2;
+
+      --font-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+      --font-body: 'Geist', ui-sans-serif, system-ui, sans-serif;
+      --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+      --radius-sm: 10px;
+      --radius: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 20px;
+
+      --shadow-card: 0 1px 2px rgba(28, 25, 23, .04), 0 16px 40px -16px rgba(28, 25, 23, .12);
+      --shadow-raised: 0 1px 2px rgba(28, 25, 23, .04), 0 10px 28px -14px rgba(28, 25, 23, .14);
+    }
+
+    /* ---------- Base ---------- */
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3, h4, p { margin: 0; }
+    ul, ol { list-style: none; margin: 0; padding: 0; }
+    a { color: #9A3412; }
+    a:hover { color: #7C2D12; }
+    :focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+    input::placeholder { color: var(--subtle); }
+    svg { flex: none; }
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin { animation: spin .9s linear infinite; }
+    @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.4s; } }
+
+    /* ---------- Brand ---------- */
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .brand__mark { width: 32px; height: 32px; color: var(--accent); }
+    .brand__name {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 18px;
+      line-height: 1.15;
+      letter-spacing: -.01em;
+    }
+
+    /* ---------- Buttons ---------- */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 0 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--text);
+      font: 600 14px/1 var(--font-body);
+      text-decoration: none;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .btn:hover { background: var(--surface-2); color: var(--text); }
+    .btn--primary {
+      height: 52px;
+      padding: 0 28px;
+      border: 0;
+      border-radius: var(--radius);
+      background: var(--accent);
+      color: #FFFFFF;
+      font-size: 16px;
+    }
+    .btn--primary:hover { background: var(--accent-ink); color: #FFFFFF; }
+    .btn--primary[disabled] { background: var(--accent); cursor: progress; }
+    .btn--dark { border-color: var(--text); background: var(--text); color: #FFFFFF; }
+    .btn--dark:hover { background: #000000; color: #FFFFFF; }
+    .btn--ghost { border-color: transparent; background: transparent; color: var(--text-2); }
+    .btn--icon { width: 44px; padding: 0; color: var(--text-2); }
+    .btn--block { width: 100%; }
+
+    /* ---------- Forms ---------- */
+    .field { display: flex; flex-direction: column; gap: 8px; }
+    .field__label { font-size: 14px; font-weight: 600; }
+    .field__hint { font-size: 13px; line-height: 1.45; color: var(--subtle); }
+    .field__error {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      color: var(--err);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .field__error svg { margin-top: 1px; }
+
+    .input-wrap { position: relative; display: flex; align-items: center; }
+    .input {
+      width: 100%;
+      height: 52px;
+      padding: 0 16px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      font: 400 16px var(--font-body);
+    }
+    .input--mono { font-family: var(--font-mono); font-size: 15px; }
+    .input--with-action { padding-right: 52px; }
+    .input--with-icon { padding-left: 46px; }
+    .input[aria-invalid="true"] { border: 1.5px solid var(--err); box-shadow: 0 0 0 4px var(--err-ring); }
+    .input[readonly] { background: var(--surface-2); color: var(--muted); }
+    .input-wrap__icon { position: absolute; left: 16px; color: var(--subtle); pointer-events: none; }
+    .input-wrap__action {
+      position: absolute;
+      right: 4px;
+      min-height: 44px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .check { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; cursor: pointer; }
+    .check input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--accent); }
+    .check__label { display: block; font-size: 15px; font-weight: 500; }
+    .check__hint { display: block; margin-top: 2px; font-size: 13px; line-height: 1.4; color: var(--subtle); }
+
+    /* ---------- Login page ---------- */
+    .login { min-height: 100vh; display: flex; flex-direction: column; }
+    .login__header { width: 100%; max-width: 1200px; margin: 0 auto; padding: 20px 24px; }
+    .login__main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px 16px 96px; }
+
+    .card {
+      width: 100%;
+      max-width: 440px;
+      padding: 40px 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-card);
+    }
+    .card__head { display: flex; flex-direction: column; gap: 16px; }
+    .card__icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--accent-soft);
+      color: var(--accent-ink);
+    }
+    .card__title {
+      font-family: var(--font-display);
+      font-size: 32px;
+      line-height: 1.1;
+      font-weight: 650;
+      letter-spacing: -.02em;
+    }
+    .card__text { margin-top: 8px; color: var(--muted); text-wrap: pretty; }
+    .login-form { display: flex; flex-direction: column; gap: 20px; }
+
+    /* ---------- App header ---------- */
+    .site-header { background: var(--surface); border-bottom: 1px solid var(--border); }
+    .site-header__inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .account { flex: none; display: flex; align-items: center; gap: 14px; }
+    .account__user { display: flex; align-items: center; gap: 10px; }
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--accent-soft);
+      color: var(--accent-ink);
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .account__names { display: flex; flex-direction: column; line-height: 1.25; }
+    .account__name { font-size: 14px; font-weight: 600; }
+    .account__handle { font-size: 13px; color: var(--subtle); }
+    .account__divider { width: 1px; height: 28px; background: var(--border); }
+    .btn--logoff { padding: 0 14px; color: var(--text-2); font-weight: 500; }
+
+    /* ---------- Import page ---------- */
+    .page {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 56px 24px 96px;
+      display: flex;
+      flex-direction: column;
+      gap: 48px;
+    }
+    .section { display: flex; flex-direction: column; gap: 24px; }
+    .page-title {
+      font-family: var(--font-display);
+      font-size: 40px;
+      line-height: 1.1;
+      font-weight: 650;
+      letter-spacing: -.025em;
+    }
+    .lead { margin-top: 10px; max-width: 600px; font-size: 17px; line-height: 1.55; color: var(--muted); text-wrap: pretty; }
+
+    .url-form__row { display: flex; gap: 10px; }
+    .url-form .input-wrap { flex: 1; min-width: 0; }
+    .url-form .input { height: 56px; }
+    .url-form .btn--primary { height: 56px; }
+
+    /* Sources */
+    .sources {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+    }
+    .sources__title { font-size: 14px; font-weight: 600; }
+    .sources__row { display: flex; align-items: center; gap: 12px; }
+    .sources__label { flex: none; width: 104px; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+    .sources__label--ready { color: var(--ok); }
+    .sources__label--off { color: var(--muted); }
+    .sources__list { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .sources__note { padding-top: 12px; border-top: 1px solid var(--border-soft); font-size: 13px; color: var(--subtle); }
+
+    .site {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .site svg { width: 26px; height: 26px; }
+    .site--off { background: var(--bg); border: 1px dashed var(--border-dashed); }
+    .site--off svg { width: 24px; height: 24px; filter: grayscale(1); opacity: .45; }
+    .site--wide { width: auto; padding: 0 14px 0 12px; gap: 8px; color: var(--text-2); font-size: 14px; }
+    .site--wide svg { width: 20px; height: 20px; }
+
+    /* Recent imports */
+    .section-head__title {
+      font-family: var(--font-display);
+      font-size: 22px;
+      line-height: 1.2;
+      font-weight: 650;
+      letter-spacing: -.01em;
+    }
+    .section-head__text { margin-top: 4px; font-size: 14px; color: var(--subtle); }
+    .section--recent { gap: 16px; }
+
+    .imports { display: flex; flex-direction: column; gap: 12px; }
+    .import {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+    }
+    .import--raised { gap: 18px; box-shadow: var(--shadow-raised); }
+
+    .import__head {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      column-gap: 16px;
+      row-gap: 4px;
+      align-items: start;
+    }
+    .import__head--center { align-items: center; }
+    .thumb {
+      width: 56px;
+      height: 56px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--thumb);
+      color: var(--subtle);
+    }
+    .import__meta { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+    .import__titleline { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+    .import__title { font-size: 16px; font-weight: 600; }
+    .import__url {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--subtle);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .import__note { display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 1.4; color: var(--subtle); }
+    .import__actions { display: flex; align-items: center; gap: 8px; }
+    .import__body { margin-left: 72px; display: flex; flex-direction: column; gap: 14px; }
+    .import__reason { font-size: 14px; line-height: 1.5; color: var(--text-2); text-wrap: pretty; }
+
+    .timer { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--subtle); white-space: nowrap; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 24px;
+      padding: 0 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge--progress { background: var(--accent-soft); color: var(--accent-ink); }
+    .badge--ok { background: var(--ok-bg); color: var(--ok); }
+    .badge--error { background: var(--err-bg); color: var(--err); }
+
+    /* Steps */
+    .steps { display: flex; flex-direction: column; gap: 14px; }
+    .step { display: flex; align-items: flex-start; gap: 12px; }
+    .step__icon { width: 20px; height: 20px; margin-top: 1px; }
+    .step__text { display: flex; flex-direction: column; gap: 2px; font-size: 15px; }
+    .step__detail { font-size: 13px; line-height: 1.4; color: var(--subtle); }
+    .step--active .step__icon { color: var(--accent); }
+    .step--active .step__label,
+    .step--failed .step__label { font-weight: 600; }
+    .step--pending .step__label { color: var(--subtle); }
+    .step--failed .step__detail { color: var(--err); }
+
+    /* Downloads */
+    .downloads { display: flex; flex-wrap: wrap; gap: 8px; }
+    .download {
+      min-height: 44px;
+      padding: 6px 14px 6px 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      text-decoration: none;
+    }
+    .download:hover { background: var(--surface-2); color: var(--text); }
+    .download svg { color: var(--text-2); }
+    .download__text { display: flex; flex-direction: column; line-height: 1.25; }
+    .download__name { font-size: 14px; font-weight: 600; }
+    .download__size { font-size: 12px; color: var(--subtle); }
+
+    /* Manual-import panel */
+    .panel {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .panel__title { font-size: 15px; font-weight: 600; }
+    .panel__text { margin-top: 4px; font-size: 14px; color: var(--muted); text-wrap: pretty; }
+    .panel__actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 16px; border-top: 1px solid var(--border); }
+
+    /* ---------- Phone ---------- */
+    @media (max-width: 640px) {
+      .login__header { padding: 16px; }
+      .login__header .brand { gap: 8px; }
+      .login__header .brand__mark { width: 28px; height: 28px; }
+      .login__header .brand__name { font-size: 17px; }
+      .login__main { align-items: flex-start; padding: 24px 16px 32px; }
+      .card { padding: 28px 22px; gap: 24px; }
+      .card__head { gap: 14px; }
+      .card__icon { width: 44px; height: 44px; border-radius: 13px; }
+      .card__title { font-size: 28px; }
+      .card__text { font-size: 15px; }
+      .login-form { gap: 18px; }
+
+      .site-header__inner { padding: 10px 16px; gap: 8px; }
+      .site-header .brand { gap: 8px; }
+      .site-header .brand__mark { width: 28px; height: 28px; }
+      .site-header .brand__name { max-width: 8.5em; font-size: 15px; }
+      .account { gap: 10px; }
+      .account__user { gap: 8px; }
+      .avatar { width: 32px; height: 32px; font-size: 14px; }
+      .account__name, .account__divider, .btn--logoff svg { display: none; }
+      .account__handle { font-size: 14px; font-weight: 600; color: var(--text); }
+      .btn--logoff { padding: 0 12px; }
+
+      .page { padding: 28px 16px 48px; gap: 36px; }
+      .section { gap: 20px; }
+      .section--recent { gap: 16px; }
+      .page-title { font-size: 30px; }
+      .lead { margin-top: 8px; font-size: 15px; line-height: 1.5; }
+      .url-form__row { flex-direction: column; }
+      .url-form .input, .url-form .btn--primary { height: 52px; }
+
+      .sources { padding: 16px; gap: 12px; }
+      .sources__row { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .sources__label { width: auto; }
+
+      .section-head__title { font-size: 21px; }
+      .import { padding: 16px; }
+      .import__head { grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; }
+      .thumb { width: 48px; height: 48px; border-radius: 11px; }
+      .thumb svg { width: 22px; height: 22px; }
+      .import__aside { grid-column: 2; }
+      .import__aside--actions { grid-column: 1 / -1; margin-top: 10px; }
+      .import__aside--actions .btn:first-child { flex: 1; }
+      .import__body { margin-left: 0; }
+
+      .panel { padding: 16px; gap: 14px; }
+      .panel .downloads { flex-direction: column; }
+      .panel .download { min-height: 52px; padding: 8px 14px 8px 12px; gap: 12px; }
+      .panel .download__text { flex: 1; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; }
+      .panel .download__name { font-size: 15px; }
+      .panel .download__size { font-size: 13px; }
+      .panel__actions { flex-wrap: nowrap; }
+      .panel__actions .btn { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+<div class="login">
+  <header class="login__header">
+    <div class="brand">
+      <svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="currentColor"/><path d="M16 7.5v10.5m-4.2-4.2 4.2 4.2 4.2-4.2M9 20.5c0 2.9 3.1 5 7 5s7-2.1 7-5" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="brand__name">Mealie Social Media Importer</span>
+    </div>
+  </header>
+  <main class="login__main">
+    <div class="card">
+      <div class="card__head">
+        <span class="card__icon" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="m10.85 12.15 9.15-9.15M17 6l3 3M14.5 8.5l2.5 2.5"/></svg>
+        </span>
+        <div>
+          <h1 class="card__title">Connect to Mealie</h1>
+          <p class="card__text">Paste an API key from your Mealie account to start importing recipes from social media.</p>
+        </div>
+      </div>
+      <form class="login-form" method="post" action="" aria-busy="true">
+        <div class="field">
+          <label class="field__label" for="api-key">Mealie API key</label>
+          <div class="input-wrap">
+            <input class="input input--mono input--with-action" id="api-key" name="api_key" type="password" value="mealie-sample-key-0000000000" autocomplete="off" spellcheck="false" aria-describedby="key-hint" readonly>
+            <button class="btn btn--ghost btn--icon input-wrap__action" type="button" aria-label="Show key">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <p class="field__hint" id="key-hint">In Mealie, open your profile › API Tokens and generate one.</p>
+        </div>
+        <label class="check">
+          <input type="checkbox" name="remember" checked>
+          <span>
+            <span class="check__label">Remember me</span>
+            <span class="check__hint">Keeps the key in this browser until you log off.</span>
+          </span>
+        </label>
+        <button class="btn btn--primary btn--block" type="submit" disabled>
+          <svg class="spin" width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5" fill="none" stroke="#FFFFFF" stroke-opacity=".35" stroke-width="2.5"/><path d="M10 2.5a7.5 7.5 0 0 1 7.5 7.5" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/></svg>
+          Checking your key…
+        </button>
+      </form>
+    </div>
+  </main>
+</div>
+</body>
+</html>
