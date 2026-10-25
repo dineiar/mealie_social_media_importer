@@ -1,0 +1,19 @@
+# Secrets and local data
+.env
+cookies/
+cookies.txt
+*.cookies.txt
+/data/
+
+# Rust
+target/
+
+# Node
+node_modules/
+dist/
+coverage/
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/
