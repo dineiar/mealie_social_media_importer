@@ -1,0 +1,182 @@
+import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { HttpResponse } from "msw";
+import { describe, expect, it } from "vitest";
+import { createQueryClient } from "../api/queryClient";
+import {
+  aMe,
+  holdMeAnswer,
+  KEY,
+  KEY_TEXT,
+  mealieUnreachableResponse,
+  meIs,
+  meRequests,
+  storedValues,
+  unauthorizedResponse,
+} from "../test/fixtures";
+import { AuthProvider, useAuth } from "./AuthProvider";
+import type { Session } from "./session";
+
+function describeSession(session: Session): string {
+  return session.kind === "unreachable"
+    ? `unreachable by ${session.cause}`
+    : session.kind;
+}
+
+function SessionProbe() {
+  const { session, check, logOff } = useAuth();
+  return (
+    <>
+      <p role="status">{describeSession(session)}</p>
+      <button type="button" onClick={() => check({ key: KEY, remember: true })}>
+        Check and remember
+      </button>
+      <button type="button" onClick={logOff}>
+        Log off
+      </button>
+    </>
+  );
+}
+
+function renderProvider(queryClient: QueryClient = createQueryClient()) {
+  render(
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <SessionProbe />
+      </AuthProvider>
+    </QueryClientProvider>,
+  );
+}
+
+describe("AuthProvider", () => {
+  it("stays signed out and calls nothing when no key is stored", () => {
+    renderProvider();
+
+    expect(screen.getByRole("status")).toHaveTextContent("signed_out");
+  });
+
+  it("checks a typed key through /api/me as a bearer token", async () => {
+    const { release, authorizations } = holdMeAnswer();
+    renderProvider();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Check and remember" }),
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("checking");
+    release();
+    expect(await screen.findByText("logged_in")).toBeInTheDocument();
+    expect(authorizations).toEqual([`Bearer ${KEY_TEXT}`]);
+  });
+
+  it("stores nothing for a key Mealie rejects", async () => {
+    meRequests(unauthorizedResponse);
+    renderProvider();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Check and remember" }),
+    );
+
+    expect(await screen.findByText("rejected")).toBeInTheDocument();
+    expect(storedValues()).toEqual({ local: [], tab: [] });
+  });
+
+  it.each([
+    ["localStorage", () => localStorage],
+    ["sessionStorage", () => sessionStorage],
+  ])("logs in on load with the key from %s", async (_name, area) => {
+    area().setItem("mealie-importer.api-key", KEY_TEXT);
+    const authorizations = meIs();
+
+    renderProvider();
+
+    expect(screen.getByRole("status")).toHaveTextContent("checking");
+    expect(await screen.findByText("logged_in")).toBeInTheDocument();
+    expect(authorizations).toEqual([`Bearer ${KEY_TEXT}`]);
+  });
+
+  it("clears a stored key that Mealie rejects on load", async () => {
+    localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+    meRequests(unauthorizedResponse);
+
+    renderProvider();
+
+    expect(await screen.findByText("rejected")).toBeInTheDocument();
+    expect(storedValues()).toEqual({ local: [], tab: [] });
+  });
+
+  it("keeps the key and asks once when Mealie can't be reached", async () => {
+    localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+    const authorizations = meRequests(mealieUnreachableResponse);
+
+    renderProvider();
+
+    expect(
+      await screen.findByText("unreachable by mealie"),
+    ).toBeInTheDocument();
+    expect(authorizations).toHaveLength(1);
+    expect(storedValues()).toEqual({ local: [KEY_TEXT], tab: [] });
+  });
+
+  it.each([
+    [
+      "nginx answers 502 with HTML",
+      () => HttpResponse.html("<h1>502 Bad Gateway</h1>", { status: 502 }),
+    ],
+    ["the connection fails", () => HttpResponse.error()],
+    [
+      "the page answers 200 with HTML instead of the API",
+      () => HttpResponse.html("<!doctype html><title>App</title>"),
+    ],
+  ])(
+    "keeps the key and blames the importer when %s",
+    async (_name, respond) => {
+      sessionStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+      const authorizations = meRequests(respond);
+
+      renderProvider();
+
+      expect(
+        await screen.findByText("unreachable by backend"),
+      ).toBeInTheDocument();
+      expect(authorizations).toHaveLength(1);
+      expect(storedValues()).toEqual({ local: [], tab: [KEY_TEXT] });
+    },
+  );
+
+  it("recovers when a check is repeated after the outage", async () => {
+    localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+    let up = false;
+    meRequests(() =>
+      up ? HttpResponse.json(aMe()) : mealieUnreachableResponse(),
+    );
+    renderProvider();
+    await screen.findByText("unreachable by mealie");
+
+    up = true;
+    await userEvent.click(
+      screen.getByRole("button", { name: "Check and remember" }),
+    );
+
+    expect(await screen.findByText("logged_in")).toBeInTheDocument();
+  });
+
+  it("forgets the key from both storages and empties the query cache on log off", async () => {
+    meIs();
+    const queryClient = createQueryClient();
+    renderProvider(queryClient);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Check and remember" }),
+    );
+    await screen.findByText("logged_in");
+    queryClient.setQueryData(["imports"], [{ id: "earlier-import" }]);
+    expect(storedValues().local).toEqual([KEY_TEXT]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Log off" }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("signed_out");
+    expect(storedValues()).toEqual({ local: [], tab: [] });
+    expect(queryClient.getQueryCache().getAll()).toEqual([]);
+  });
+});
