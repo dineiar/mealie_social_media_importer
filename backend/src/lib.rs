@@ -2,6 +2,7 @@ pub mod config;
 pub mod error;
 pub mod process;
 mod routes;
+pub mod tools;
 
 use std::sync::Arc;
 
