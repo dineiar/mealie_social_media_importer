@@ -7,6 +7,18 @@ use mealie_importer::process::run;
 #[path = "common/stub.rs"]
 mod stub_tool;
 
+async fn child_env() -> BTreeMap<String, String> {
+    let out = run(&stub_tool::stub(), ["env"], None, Duration::from_secs(60))
+        .await
+        .unwrap();
+    out.stdout
+        .text
+        .lines()
+        .filter_map(|line| line.split_once('='))
+        .map(|(name, value)| (name.to_owned(), value.to_owned()))
+        .collect()
+}
+
 #[tokio::test]
 async fn the_child_gets_only_the_variables_it_needs() {
     // SAFETY: this file holds one test, so no other thread reads or writes the environment.
@@ -15,23 +27,20 @@ async fn the_child_gets_only_the_variables_it_needs() {
         env::set_var("MEALIE_URL", "http://planted.invalid");
         env::set_var("TZ", "Europe/Oslo");
         env::set_var("HTTPS_PROXY", "http://proxy.invalid:3128");
+        env::set_var("PATH", "/usr/bin::relative/bin:/bin:.");
     }
-    let parent_path = env::var("PATH").expect("cargo runs tests with a PATH");
 
-    let out = run(&stub_tool::stub(), ["env"], None, Duration::from_secs(60))
-        .await
-        .unwrap();
+    let child = child_env().await;
 
-    let child: BTreeMap<&str, &str> = out
-        .stdout
-        .text
-        .lines()
-        .filter_map(|line| line.split_once('='))
-        .collect();
-    assert_eq!(child.get("PATH"), Some(&parent_path.as_str()));
-    assert_eq!(child.get("TZ"), Some(&"Europe/Oslo"));
-    assert_eq!(child.get("HTTPS_PROXY"), Some(&"http://proxy.invalid:3128"));
-    assert!(!out.stdout.text.contains("planted"), "{}", out.stdout.text);
+    assert_eq!(child["TZ"], "Europe/Oslo");
+    assert_eq!(child["HTTPS_PROXY"], "http://proxy.invalid:3128");
+    assert!(!child.values().any(|value| value.contains("planted")));
     assert!(!child.contains_key("TRANSCRIPTION_API_KEY"));
     assert!(!child.contains_key("MEALIE_URL"));
+    assert_eq!(child["PATH"], "/usr/bin:/bin");
+
+    // SAFETY: as above.
+    unsafe { env::set_var("PATH", ":relative/bin:.") };
+
+    assert!(!child_env().await.contains_key("PATH"));
 }

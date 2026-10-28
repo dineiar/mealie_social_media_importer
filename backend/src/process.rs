@@ -1,5 +1,5 @@
 use std::env;
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::io;
 use std::os::unix::process::ExitStatusExt;
@@ -49,6 +49,22 @@ const CHILD_ENV: &[&str] = &[
     "SSL_CERT_DIR",
     "REQUESTS_CA_BUNDLE",
 ];
+
+/// An empty or relative `PATH` entry means the child's working directory, which is the
+/// import directory holding downloaded files. Only absolute entries are passed on.
+fn child_env() -> impl Iterator<Item = (&'static str, OsString)> {
+    CHILD_ENV.iter().filter_map(|&name| {
+        let value = env::var_os(name)?;
+        if name != "PATH" {
+            return Some((name, value));
+        }
+        let absolute: Vec<_> = env::split_paths(&value)
+            .filter(|dir| dir.is_absolute())
+            .collect();
+        let joined = env::join_paths(absolute).ok()?;
+        (!joined.is_empty()).then_some((name, joined))
+    })
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Exit {
@@ -137,11 +153,7 @@ where
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .env_clear()
-        .envs(
-            CHILD_ENV
-                .iter()
-                .filter_map(|name| env::var_os(name).map(|value| (name, value))),
-        )
+        .envs(child_env())
         .kill_on_drop(true)
         .process_group(0);
     if let Some(cwd) = cwd {

@@ -12,7 +12,7 @@ die)
     kill -9 $$
     ;;
 env)
-    env
+    /usr/bin/env
     ;;
 nap)
     echo $$ >"$2"
