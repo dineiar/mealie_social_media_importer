@@ -74,3 +74,82 @@ jobs:
       - run: npm run build
       - name: Check the build has no Google Fonts references
         run: "! grep -rEq 'fonts\\.(googleapis|gstatic)\\.com' dist"
+
+  frontend-image:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the image
+        run: docker build --tag frontend-image frontend
+      - name: Run the image in front of a stub backend
+        run: |
+          set -eu
+
+          network=frontend-smoke
+          trap 'docker rm -f frontend-smoke backend-smoke > /dev/null 2>&1 || true; docker network rm "$network" > /dev/null 2>&1 || true' EXIT
+          fail() {
+            echo "FAIL: $*" >&2
+            docker logs frontend-smoke >&2 || true
+            exit 1
+          }
+
+          cat > "${RUNNER_TEMP:-/tmp}/backend-smoke.conf" << 'EOF'
+          server {
+              listen 8080;
+              default_type application/json;
+              location = /api/health { return 200 '{"status":"ok"}'; }
+              location /api/ { return 404 '{"error":{"kind":"not_found","message":"no such route"}}'; }
+          }
+          EOF
+
+          docker network create "$network" > /dev/null
+          docker run -d --name backend-smoke --network "$network" --network-alias backend \
+            -v "${RUNNER_TEMP:-/tmp}/backend-smoke.conf:/etc/nginx/conf.d/default.conf:ro" \
+            nginxinc/nginx-unprivileged:alpine > /dev/null
+          docker run -d --name frontend-smoke --network "$network" -p 127.0.0.1::8080 frontend-image > /dev/null
+          port=$(docker port frontend-smoke 8080/tcp | head -n 1 | sed 's/.*://')
+          base=http://127.0.0.1:$port
+          curl -sS --retry 10 --retry-connrefused --retry-delay 1 -o /dev/null "$base/"
+
+          asset=$(curl -sS "$base/" | grep -o -m 1 '/assets/[^"]*\.js')
+          [ -n "$asset" ] || fail "index.html links no hashed script"
+
+          security=(
+            "Content-Security-Policy: default-src 'self'"
+            "X-Content-Type-Options: nosniff"
+            "X-Frame-Options: DENY"
+            "Referrer-Policy: no-referrer"
+            "Permissions-Policy: "
+          )
+          header_of() { curl -sS -D - -o /dev/null "$base$1"; }
+          for path in / /index.html /some/deep/link "$asset" /assets/missing.js /api/health /api/missing; do
+            headers=$(header_of "$path")
+            for expected in "${security[@]}"; do
+              grep -qiF "$expected" <<< "$headers" || fail "$path lacks '$expected'"
+            done
+            echo "ok: security headers on $path"
+          done
+
+          expect_cache() {
+            grep -qiF "Cache-Control: $2" <<< "$(header_of "$1")" || fail "$1 lacks 'Cache-Control: $2'"
+            echo "ok: $1 is $2"
+          }
+          expect_cache / no-cache
+          expect_cache /index.html no-cache
+          expect_cache /some/deep/link no-cache
+          expect_cache "$asset" "public, max-age=31536000, immutable"
+
+          [ "$(curl -sS "$base/some/deep/link")" = "$(curl -sS "$base/index.html")" ] || fail "deep link did not serve index.html"
+          echo "ok: deep link serves index.html"
+          [ "$(curl -sS "$base/assets/missing.js" -o /dev/null -w '%{http_code}')" = 404 ] || fail "missing asset is not a 404"
+          echo "ok: missing asset is a 404"
+          [ "$(curl -sS "$base/api/health")" = '{"status":"ok"}' ] || fail "/api/health did not reach the backend"
+          [ "$(curl -sS "$base/api/missing" -o /dev/null -w '%{http_code}')" = 404 ] || fail "backend 404 did not pass through"
+          echo "ok: /api reaches the backend"
+
+          [ "$(docker exec frontend-smoke id -u)" != 0 ] || fail "container runs as root"
+          [ -z "$(docker exec frontend-smoke ps -o user= | grep -vx nginx)" ] || fail "an nginx process is not the nginx user"
+          docker exec frontend-smoke netstat -ltn | grep -q ':8080 ' || fail "nothing listens on 8080"
+          echo "ok: non-root, listening on 8080"
