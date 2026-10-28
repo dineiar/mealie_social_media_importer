@@ -4,8 +4,9 @@
 Each run is a directory written by capture.py. The script reads the real identifiers out
 of the recorded data itself, so it holds none. Every handle, name, caption, shortcode,
 numeric id, post date and CDN URL is replaced by a synthetic value of the same type and shape,
-and signed query strings are dropped. If any real identifier survives in the output, the
-script exits with an error and writes nothing.
+and signed query strings are dropped. A run's cookies-diff.txt becomes `cookie_changes` in
+case.json, which names cookies and never holds values. If any real identifier survives in the
+output, the script exits with an error and writes nothing.
 
 The leak check compares against what the scrubber learned, so it only knows values that a
 key rule or a caption registered. It skips handles and names under four characters, and
@@ -44,6 +45,7 @@ CDN_HOSTS = ("cdninstagram.com", "fbcdn.net")
 OWN_HOSTS = ("instagram.com", "fbcdn.net")
 POST_PREFIXES = {"p", "reel", "reels", "tv"}
 RUN_KINDS = ("gallery-dl.dump-json", "gallery-dl.download", "yt-dlp.dump-json", "yt-dlp.download")
+COOKIE_CHANGES = {"added": "added", "removed": "removed", "expiry changed": "expiry_changed", "value changed": "value_changed"}
 
 
 def stem(path):
@@ -267,6 +269,19 @@ def kind_of(name):
     return "json" if ext == "json" else "video" if ext in VIDEO_EXT else "image" if ext in IMAGE_EXT else "file"
 
 
+def cookie_changes(directory):
+    text = read(os.path.join(directory, "cookies-diff.txt"))
+    if not text:
+        return None
+    changes = {key: [] for key in COOKIE_CHANGES.values()}
+    for line in text.splitlines():
+        name, _, what = line.partition(": ")
+        for label, key in COOKIE_CHANGES.items():
+            if label in what:
+                changes[key].append(name)
+    return changes
+
+
 def load_run(directory):
     raw_exit = read(os.path.join(directory, "exit.txt")).strip()
     return {
@@ -275,6 +290,7 @@ def load_run(directory):
         "stdout": read(os.path.join(directory, "stdout.txt")),
         "stderr": read(os.path.join(directory, "stderr.txt")),
         "exit": int(raw_exit) if raw_exit.lstrip("-").isdigit() else raw_exit,
+        "cookie_changes": cookie_changes(directory),
     }
 
 
@@ -328,6 +344,8 @@ def main():
             "stdout": None,
             "stderr": None,
         }
+        if run["cookie_changes"] is not None:
+            entry["cookie_changes"] = run["cookie_changes"]
         if kind == "gallery-dl.dump-json":
             if (kind, "stdout") in documents:
                 entry["stdout"] = put(f"{kind}.stdout.json", dumps(ident.scrub_document(documents[(kind, "stdout")])))

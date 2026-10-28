@@ -20,6 +20,7 @@ import sys
 from typing import NamedTuple
 
 TIMEOUT_SECS = 180
+VERSION_TIMEOUT_SECS = 30
 
 
 class Cookie(NamedTuple):
@@ -42,8 +43,8 @@ def read_jar(path):
 
 
 def summary(digest, jar):
-    rows = [f"{domain}|{name}|expires={c.expiry}|value_length={len(c.value)}" for (domain, name), c in sorted(jar.items())]
-    return f"sha256={digest}\ncookies={len(rows)}\n" + "\n".join(rows) + "\n"
+    rows = [f"{domain}|{name}|exp={c.expiry}|valuelen={len(c.value)}" for (domain, name), c in sorted(jar.items())]
+    return f"sha256={digest}\nlines={len(rows)}\n" + "\n".join(rows) + "\n"
 
 
 def diff(before, after):
@@ -51,7 +52,7 @@ def diff(before, after):
     for key in sorted(set(before) | set(after)):
         old, new = before.get(key), after.get(key)
         if old is None:
-            rows.append(f"{key[1]}: added")
+            rows.append(f"{key[1]}: added (expires={'session' if new.expiry == '0' else 'set'})")
         elif new is None:
             rows.append(f"{key[1]}: removed")
         else:
@@ -98,7 +99,10 @@ def main():
     argv = [tool] + [substitute(a, jar_copy, out_dir) for a in command[1:]]
     shown = [command[0]] + [substitute(a, "<cookies>", "<out>") for a in command[1:]]
     write(run_dir, "cmd.txt", shlex.join(shown) + "\n")
-    version = subprocess.run([tool, "--version"], capture_output=True, text=True).stdout.strip()
+    try:
+        version = subprocess.run([tool, "--version"], capture_output=True, text=True, timeout=VERSION_TIMEOUT_SECS).stdout.strip()
+    except subprocess.TimeoutExpired:
+        version = "timeout"
     write(run_dir, "version.txt", version + "\n")
 
     try:
