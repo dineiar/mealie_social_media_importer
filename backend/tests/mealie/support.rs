@@ -5,14 +5,20 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
+use axum::Router;
+use axum::body::Body;
+use axum::http::StatusCode;
+use http_body_util::BodyExt;
 use mealie_importer::config::{BaseUrl, Config};
 use mealie_importer::mealie::{
     AiRecipeRequest, AssetIcon, AssetUpload, MealieApi, MealieClient, MealieError, RecipePatch,
     RecipeSlug,
 };
+use mealie_importer::{AppState, router};
 use secrecy::SecretString;
 use serde_json::{Value, json};
 use tempfile::TempDir;
+use tower::ServiceExt;
 use wiremock::matchers::any;
 use wiremock::{Mock, MockServer, Request, ResponseTemplate};
 
@@ -68,9 +74,44 @@ pub fn ai_request(content: &str) -> AiRecipeRequest {
     }
 }
 
+pub fn config_with(pairs: &[(&str, &str)]) -> Config {
+    let vars: HashMap<String, String> = pairs
+        .iter()
+        .map(|(name, value)| (name.to_string(), value.to_string()))
+        .collect();
+    Config::from_vars(&vars).expect("a valid configuration")
+}
+
 pub fn config(url: &str) -> Config {
-    let vars = HashMap::from([("MEALIE_URL".to_owned(), url.to_owned())]);
-    Config::from_vars(&vars).expect("a valid URL")
+    config_with(&[("MEALIE_URL", url)])
+}
+
+pub fn router_for(config: Config) -> Router {
+    let mealie = MealieClient::from_config(&config).expect("client builds");
+    router(AppState::new(config, Arc::new(mealie)))
+}
+
+pub async fn get_json(app: &Router, uri: &str, authorization: Option<&str>) -> (StatusCode, Value) {
+    let mut request = axum::http::Request::get(uri);
+    if let Some(value) = authorization {
+        request = request.header("authorization", value);
+    }
+    let response = app
+        .clone()
+        .oneshot(request.body(Body::empty()).unwrap())
+        .await
+        .expect("router answers");
+    let status = response.status();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    (status, serde_json::from_slice(&bytes).expect("a JSON body"))
+}
+
+pub fn error_body(kind: &str, message: &str) -> Value {
+    json!({ "error": { "kind": kind, "message": message } })
+}
+
+pub fn unauthorized() -> Value {
+    error_body("unauthorized", "A valid Mealie API key is required.")
 }
 
 pub fn base_url(url: &str) -> BaseUrl {

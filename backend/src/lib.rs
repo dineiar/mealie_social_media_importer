@@ -11,6 +11,7 @@ use std::sync::Arc;
 use auth::{Authenticator, USER_TTL};
 use config::Config;
 use mealie::MealieApi;
+use platforms::Registry;
 use store::{ImportStore, SystemClock};
 
 pub use routes::router;
@@ -20,6 +21,7 @@ pub struct AppState {
     config: Arc<Config>,
     mealie: Arc<Authenticator>,
     imports: Arc<ImportStore>,
+    platforms: Arc<Registry>,
 }
 
 impl AppState {
@@ -30,6 +32,7 @@ impl AppState {
             Arc::new(SystemClock),
         );
         Self {
+            platforms: Arc::new(Registry::from_config(&config)),
             config: Arc::new(config),
             mealie: Arc::new(Authenticator::new(mealie, USER_TTL)),
             imports: Arc::new(imports),

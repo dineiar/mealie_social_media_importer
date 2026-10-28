@@ -1,40 +1,20 @@
-use std::sync::Arc;
-
 use axum::Router;
-use axum::body::Body;
-use axum::http::{Request, StatusCode};
-use http_body_util::BodyExt;
-use mealie_importer::mealie::MealieClient;
-use mealie_importer::{AppState, router};
+use axum::http::StatusCode;
 use serde_json::{Value, json};
-use tower::ServiceExt;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use crate::support::{
-    KEY, authorization, bearer, calls_to, capture_logs, config, groups_ok, refused_url, user_json,
-    users_ok,
+    KEY, authorization, bearer, calls_to, capture_logs, config, error_body, get_json, groups_ok,
+    refused_url, router_for, unauthorized, user_json, users_ok,
 };
 
 fn app(mealie_url: &str) -> Router {
-    let config = config(mealie_url);
-    let mealie = MealieClient::from_config(&config).expect("client builds");
-    router(AppState::new(config, Arc::new(mealie)))
+    router_for(config(mealie_url))
 }
 
 async fn get_me(app: &Router, header: Option<&str>) -> (StatusCode, Value) {
-    let mut request = Request::get("/api/me");
-    if let Some(value) = header {
-        request = request.header("authorization", value);
-    }
-    let response = app
-        .clone()
-        .oneshot(request.body(Body::empty()).unwrap())
-        .await
-        .expect("router answers");
-    let status = response.status();
-    let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    (status, serde_json::from_slice(&bytes).expect("a JSON body"))
+    get_json(app, "/api/me", header).await
 }
 
 async fn mealie_answering(users: ResponseTemplate, groups: ResponseTemplate) -> MockServer {
@@ -47,14 +27,6 @@ async fn mealie_answering(users: ResponseTemplate, groups: ResponseTemplate) -> 
             .await;
     }
     server
-}
-
-fn error_body(kind: &str, message: &str) -> Value {
-    json!({ "error": { "kind": kind, "message": message } })
-}
-
-fn unauthorized() -> Value {
-    error_body("unauthorized", "A valid Mealie API key is required.")
 }
 
 fn mealie_unreachable() -> Value {

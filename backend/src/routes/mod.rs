@@ -3,6 +3,7 @@ mod files;
 mod health;
 mod imports;
 mod me;
+mod platforms;
 
 use std::time::Duration;
 
@@ -34,6 +35,7 @@ pub fn router(state: AppState) -> Router {
             .route("/api/health", get(health::health))
             .route("/api/config", get(config::config))
             .route("/api/me", get(me::me))
+            .route("/api/platforms", get(platforms::platforms))
             .route("/api/imports", get(imports::list))
             .route("/api/imports/{id}", get(imports::get))
             .route("/api/files/{id}/{name}", get(files::download))
