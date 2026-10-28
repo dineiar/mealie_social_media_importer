@@ -8,6 +8,7 @@ use std::time::Duration;
 use mealie_importer::config::{self, Config, ConfigError, LogFormat};
 use mealie_importer::mealie::MealieClient;
 use mealie_importer::store::{self, ImportStore, SystemClock};
+use mealie_importer::tools::{self, ToolSet};
 use mealie_importer::{AppState, router};
 use tokio::net::TcpListener;
 use tokio::signal::unix::{SignalKind, signal};
@@ -77,6 +78,8 @@ async fn serve(config: Config) -> ExitCode {
         }
     };
     tracing::info!(%addr, version = env!("CARGO_PKG_VERSION"), "listening");
+    let tools = ToolSet::discover(&config.data_dir, std::env::var_os("PATH").as_deref());
+    tokio::spawn(async move { tools.log_versions(tools::VERSION_TIMEOUT).await });
     tokio::spawn(store::sweep_every(
         Arc::clone(&imports),
         store::SWEEP_PERIOD,

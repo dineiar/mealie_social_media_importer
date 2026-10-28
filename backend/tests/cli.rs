@@ -1,9 +1,15 @@
+use std::fs;
 use std::net::TcpListener;
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use rustix::process::{Pid, Signal, kill_process};
+use tempfile::{NamedTempFile, tempdir};
+
+mod common;
+
+use common::install;
 
 const BIN: &str = env!("CARGO_BIN_EXE_mealie-importer");
 
@@ -110,4 +116,47 @@ fn healthcheck_follows_the_server_from_start_to_sigterm() {
     assert!(exit.success(), "SIGTERM stops cleanly, got {exit}");
 
     assert_eq!(healthcheck().code(), Some(1));
+}
+
+#[test]
+fn boot_logs_the_version_of_each_tool_found_and_warns_about_the_rest() {
+    let data = tempdir().unwrap();
+    install(
+        &data.path().join("tools/bin"),
+        "gallery-dl",
+        "#!/bin/sh\necho 1.31.0\n",
+    );
+    let log = NamedTempFile::new().unwrap();
+    let listen = format!("127.0.0.1:{}", free_port());
+    let _server = Server(
+        command(
+            &[
+                ("MEALIE_URL", "http://localhost:9000"),
+                ("BIND_ADDR", &listen),
+                ("DATA_DIR", data.path().to_str().unwrap()),
+                ("PATH", ""),
+            ],
+            &[],
+        )
+        .stdout(log.reopen().unwrap())
+        .spawn()
+        .unwrap(),
+    );
+
+    let text = wait_for("the log never named every tool", || {
+        let text = fs::read_to_string(log.path()).ok()?;
+        ["gallery-dl", "yt-dlp", "ffmpeg", "ffprobe"]
+            .iter()
+            .all(|tool| text.contains(tool))
+            .then_some(text)
+    });
+
+    let line_for = |tool: &str| text.lines().find(|line| line.contains(tool)).unwrap();
+    let found = line_for("gallery-dl");
+    assert!(
+        found.contains("INFO") && found.contains("1.31.0"),
+        "{found}"
+    );
+    let missing = line_for("yt-dlp");
+    assert!(missing.contains("WARN"), "{missing}");
 }

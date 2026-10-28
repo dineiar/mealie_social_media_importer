@@ -6,6 +6,7 @@ pub mod platforms;
 pub mod process;
 mod routes;
 pub mod store;
+pub mod tools;
 
 use std::sync::Arc;
 
