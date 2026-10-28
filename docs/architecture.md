@@ -62,7 +62,7 @@ design/              approved mockups
 
 ## Backend API
 
-All endpoints live under `/api`. Every endpoint needs `Authorization: Bearer <Mealie API key>`, except `health`, `config` and signed file downloads. Errors come back with the matching status code and `{"error": {"kind": "...", "message": "..."}}`. An unknown path returns 404 with the kind `not_found`.
+All endpoints live under `/api`. Every endpoint needs `Authorization: Bearer <Mealie API key>`, except `health`, `config` and signed file downloads. Errors come back with the matching status code and `{"error": {"kind": "...", "message": "..."}}`. The shape holds for errors raised by the router and middleware too: an unknown path returns 404 `not_found`, a wrong method 405 `method_not_allowed`, a body over 64 KiB 413 `payload_too_large`, and a response that doesn't start within 660 s 504 `timeout`. `message` is a fixed English string, never the text of an underlying error.
 
 | Method | Path | Behaviour |
 | --- | --- | --- |
