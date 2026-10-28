@@ -70,8 +70,10 @@ async fn unknown_path_is_a_json_not_found_error() {
     let (status, _, body) = send(default_app(), get("/api/nothing-here")).await;
 
     assert_eq!(status, StatusCode::NOT_FOUND);
-    assert_eq!(body["error"]["kind"], "not_found");
-    assert!(body["error"]["message"].is_string());
+    assert_eq!(
+        body,
+        json!({ "error": { "kind": "not_found", "message": "Not found." } })
+    );
 }
 
 #[tokio::test]
