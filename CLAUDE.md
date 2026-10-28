@@ -8,7 +8,7 @@ Work is tracked as GitHub issues #1 to #19, grouped into four milestones. Each i
 
 ## Stack
 
-- Backend (`backend/`): Rust (edition 2024), axum, tokio, reqwest with rustls, figment, tracing, thiserror, moka, secrecy, ts-rs. It shells out to gallery-dl, yt-dlp, ffmpeg and ffprobe.
+- Backend (`backend/`): Rust (edition 2024), axum, tokio, reqwest with rustls, tracing, thiserror, moka, secrecy, ts-rs. It shells out to gallery-dl, yt-dlp, ffmpeg and ffprobe.
 - Frontend (`frontend/`): React 19, strict TypeScript, Vite, TanStack Query, plain CSS ported from `design/`, Biome, Vitest, React Testing Library, MSW.
 - Deployment (`deploy/`): two Dockerfiles (backend, frontend) and an example compose file that also runs a local Whisper (speaches) container. Images go to GHCR for amd64 and arm64.
 
