@@ -34,6 +34,7 @@ backend/
     store/           in-memory store, manifests, sweeper, signed URLs
     transcribe/      Transcriber trait, ffmpeg extraction, speech API client
     process.rs       child process runner with timeout and kill
+    tools.rs         finds gallery-dl, yt-dlp, ffmpeg and ffprobe and logs their versions
   tests/             integration tests and fixtures
   Dockerfile
 frontend/
