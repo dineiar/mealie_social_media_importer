@@ -39,9 +39,9 @@ backend/
 frontend/
   src/
     api/             fetch client; types/ is generated from Rust by ts-rs
-    auth/            key storage and AuthProvider
+    auth/            session state machine, key storage and AuthProvider
     pages/           LoginPage, ImportPage
-    components/      Header, UrlForm, Sources, ImportCard, Steps, Downloads
+    components/      Header, Account, Banner, SignedInShell, UrlForm, Sources, ImportCard, Steps, Downloads
     styles/          tokens.css and component CSS ported from design/
   nginx.conf
   Dockerfile
@@ -56,9 +56,14 @@ design/              approved mockups
 
 1. The user pastes a Mealie API key. With "Remember me" checked, the frontend stores it in `localStorage`. Unchecked, it goes to `sessionStorage`, which the browser clears when the tab closes.
 2. Every API call sends `Authorization: Bearer <key>`. The backend validates the key with Mealie's `GET /api/users/self` and caches the answer for 5 minutes, keyed by the SHA-256 of the key. Any 401 or 403 from Mealie, on any call made with that key, evicts the entry. A 403 can also mean the user lacks a permission, and then the next request only looks the user up again. A key revoked in Mealie keeps working for up to 5 minutes on an endpoint that never calls Mealie.
-3. On load, the frontend calls `GET /api/me` with the stored key. A 401 clears the key and shows the login form with "Mealie didn't accept this key." A 502 keeps the key and shows a banner saying Mealie can't be reached.
-4. "Log off" removes the key from both storages and clears the query cache.
-5. `/?url=<post link>` fills the link field and starts the import once the user is logged in. The parameter survives the login screen.
+3. On load, the frontend calls `GET /api/me` once with the stored key, with no retry. A typed key goes through the same call. The answer decides the session:
+   - A 401 clears the key and shows the login form with "Mealie didn't accept this key."
+   - A 502 with kind `mealie_unreachable` keeps the key and shows a banner saying Mealie can't be reached.
+   - Any other failure keeps the key and shows a banner saying the importer isn't responding. That covers a rejected `fetch`, nginx's HTML 502 when the backend is down, any other 5xx, and a 200 whose body isn't JSON.
+   - A banner has a "Try again" button that repeats the call. While the call runs, the screen is the login form's checking state.
+   - An answer with `ai.enabled` set to false is a normal login. The header shows the user and a banner says recipes can't be created until AI is set up in Mealie.
+4. "Log off" removes the key from both storages and clears the query cache. A rejected key does the same. The browser never holds the key in both storages at once.
+5. `/?url=<post link>` fills the link field and starts the import once the user is logged in. Nothing on the login path navigates or rewrites the address, so the parameter survives the login screen.
 
 ## Backend API
 
