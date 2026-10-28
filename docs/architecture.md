@@ -78,7 +78,7 @@ design/              approved mockups
 
 ## Backend API
 
-All endpoints live under `/api`. Every endpoint needs `Authorization: Bearer <Mealie API key>`, except `health`, `config` and signed file downloads. Errors come back with the matching status code and `{"error": {"kind": "...", "message": "..."}}`. The shape holds for errors raised by the router and middleware too: an unknown path returns 404 `not_found`, a wrong method 405 `method_not_allowed`, a body over 64 KiB 413 `payload_too_large`, and a response that doesn't start within 660 s 504 `timeout`. A missing key, an `Authorization` header with any scheme other than `Bearer`, or a key Mealie answers 401 or 403, returns 401 `unauthorized`. A Mealie that can't be reached, or answers a self-lookup with a status or body the importer doesn't expect, returns 502 `mealie_unreachable`. `message` is a fixed English string, never the text of an underlying error.
+All endpoints live under `/api`. Every endpoint needs `Authorization: Bearer <Mealie API key>`, except `health`, `config` and signed file downloads. Errors come back with the matching status code and `{"error": {"kind": "...", "message": "..."}}`. The shape holds for errors raised by the router and middleware too: an unknown path returns 404 `not_found`, a wrong method 405 `method_not_allowed`, a body over 64 KiB 413 `payload_too_large`, and a response that doesn't start within 660 s 504 `timeout`. A missing key, an `Authorization` header with any scheme other than `Bearer`, or a key Mealie answers 401 or 403, returns 401 `unauthorized`. A file link with a bad or expired signature returns 403 `forbidden`. A Mealie that can't be reached, or answers a self-lookup with a status or body the importer doesn't expect, returns 502 `mealie_unreachable`. `message` is a fixed English string, never the text of an underlying error.
 
 | Method | Path | Behaviour |
 | --- | --- | --- |
@@ -87,10 +87,10 @@ All endpoints live under `/api`. Every endpoint needs `Authorization: Bearer <Me
 | GET | `/api/me` | `{"id", "username", "full_name", "group_slug", "ai": {"enabled", "image_enabled"}}`. `username` and `full_name` are null when Mealie has none. The user comes from the 5-minute cache, `ai` from a fresh `GET /api/groups/self`. 401 when the key is missing or Mealie rejects it, 502 when Mealie can't be reached |
 | GET | `/api/platforms` | `[{"id":"instagram", "name":"Instagram", "status":"ready" \| "not_configured", "hint"}]` |
 | POST | `/api/imports` | Body `{"url": string, "language"?: string}`. 202 with the new import record. 400 for an unsupported host or a platform that isn't set up. If the same URL is already queued or running for this user, 200 with that record. `?wait=true` holds the response until the import finishes, capped at 10 minutes |
-| GET | `/api/imports` | The caller's imports, newest first |
-| GET | `/api/imports/{id}` | One import. 404 if it belongs to another user |
+| GET | `/api/imports` | The caller's imports, newest first. An import drops out at its `expires_at` |
+| GET | `/api/imports/{id}` | One import. 404 if it belongs to another user or has expired |
 | POST | `/api/imports/{id}/retry` | Reruns from the first failed step, reusing downloaded files. Uses the key sent with the retry request |
-| GET | `/api/files/{id}/{name}?exp=&sig=` | Streams a file with `Content-Disposition: attachment`. 403 for a bad or expired signature, 404 for an unknown file |
+| GET | `/api/files/{id}/{name}?exp=&sig=` | Streams a file with `Content-Disposition: attachment` and the file's MIME type. No Bearer header, because the signature authorizes it. 403 for a bad or expired signature, 404 for an unknown file or a `{name}` that isn't a plain file name |
 
 `language` is a BCP 47 tag such as `pt-BR`. The frontend always sends `navigator.language`. When the body has none, the backend uses the first tag of `Accept-Language`. When there is neither, the recipe keeps the post's language. The language is stored on the import, so a retry reuses it.
 
@@ -127,10 +127,13 @@ API types are defined once in Rust and exported to `frontend/src/api/types/` wit
 - `status`: `queued`, `running`, `succeeded` or `failed`.
 - Step `key`: `download`, `transcribe`, `create_recipe`, `attach_media`, in that order.
 - Step `state`: `pending`, `active`, `done`, `skipped` or `failed`. These match the five step styles in the mockups. `transcribe` is `skipped` for photo-only posts and when no speech API is configured.
+- Step `detail`: `{"media", "bytes", "duration_s"}` on the download step, where `media` is `video` or `image` and `duration_s` is null for photos. Other steps have null.
 - `error`: `{"kind", "message"}` when `failed`, otherwise null.
 - `warnings`: `[{"kind", "message"}]`, where `kind` is `transcription_failed` or `attach_failed`. A warning never changes `status`.
+- `message` in `error` and `warnings` is a fixed English string per `kind`.
 - `recipe`: `{"slug", "name", "url"}` when `succeeded`. `url` is `{MEALIE_PUBLIC_URL}/g/{group_slug}/r/{slug}`.
 - `files[].kind`: `video`, `image` or `text`. `caption.txt` and `transcript.txt` are `text`.
+- `files[].name` is one path segment of ASCII letters, digits, `.`, `-` and `_` that starts with a letter or digit. Its extension sets `kind` and `mime`: `.mp4` is `video/mp4`, `.jpg` and `.jpeg` are `image/jpeg`, `.png` is `image/png`, `.webp` is `image/webp`, and `.txt` is `text/plain`. Other names can't be listed or downloaded.
 - The frontend owns all user-facing wording. The backend sends keys and structured details only.
 
 | `error.kind` | Card title in the UI | Typical cause |
@@ -220,10 +223,13 @@ The importer requires Mealie 3.29 or later, the first release that accepts MP4 a
 - `manifest.json` is the import record plus what a restart needs. It is rewritten on every state change and never contains the API key.
 - `expires_at` is `finished_at` plus `MEDIA_RETENTION_MINUTES` (default 60). A retry resets it.
 - A sweeper runs every 60 s and deletes expired imports, both the directory and the memory entry. It only touches `/data/imports/`.
-- On startup the backend reloads the manifests. Unexpired imports reappear, imports that were queued or running become `failed` with `interrupted`, and expired ones are deleted.
+- An import drops out of the API at `expires_at`, and the sweeper deletes it within the next 60 s.
+- On startup the backend reloads the manifests. Unexpired imports reappear, imports that were queued or running become `failed` with `interrupted`, and expired ones are deleted. An interrupted import gets the restart time as `finished_at`, and its active step becomes `failed`. A directory whose `manifest.json` is missing or can't be parsed is deleted with a warning in the log, and an entry whose name isn't an import id is left alone. The backend exits if it can't create or read `/data/imports/`.
+- An import whose runner stops before it finishes, as on shutdown or a panic, is also `failed` with `interrupted`.
 - The API key is held in memory only while that user's import runs.
 - Imports are scoped to the Mealie user id from `/api/users/self`. Users never see each other's imports.
-- File links are signed: `sig` is HMAC-SHA256 over `<id>/<name>/<exp>` with a random secret generated at startup, and `exp` equals the import's `expires_at`. After a restart the old links stop working, and the next poll hands out new ones.
+- File links are signed: `sig` is HMAC-SHA256 over `<id>/<name>/<exp>`, in lowercase hex, with a random secret generated at startup. `exp` is a Unix time in seconds and equals the import's `expires_at`. While an import is queued or running it has no `expires_at`, so `exp` is the time of the poll plus `MEDIA_RETENTION_MINUTES`. Every link a poll hands out therefore works until `exp`, and `exp` is never later than the `expires_at` the import gets when it finishes. After a restart the old links stop working, and the next poll hands out new ones.
+- The request log records the path and never the query, so a signature never reaches a log line.
 
 ## Cookie store
 
