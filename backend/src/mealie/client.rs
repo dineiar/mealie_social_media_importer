@@ -21,10 +21,17 @@ use crate::config::{BaseUrl, Config};
 /// A host that drops packets should fail in seconds, not after the 330 s request timeout.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// `users/self` and `groups/self` back the login screen, where the user is watching a
+/// spinner. Both are single-row lookups that a healthy Mealie answers in well under a
+/// second, so 10 s leaves room for a cold start on a small board and no more. The 330 s
+/// request timeout is sized for Mealie's AI and would hold that spinner for minutes.
+const LOOKUP_TIMEOUT: Duration = Duration::from_secs(10);
+
 #[derive(Debug)]
 pub struct MealieClient {
     http: reqwest::Client,
     base: BaseUrl,
+    lookup_timeout: Duration,
 }
 
 impl MealieClient {
@@ -40,7 +47,16 @@ impl MealieClient {
             .connect_timeout(CONNECT_TIMEOUT)
             .redirect(reqwest::redirect::Policy::none())
             .build()?;
-        Ok(Self { http, base })
+        Ok(Self {
+            http,
+            base,
+            lookup_timeout: timeout.min(LOOKUP_TIMEOUT),
+        })
+    }
+
+    pub fn with_lookup_timeout(mut self, timeout: Duration) -> Self {
+        self.lookup_timeout = timeout;
+        self
     }
 
     async fn send(
@@ -95,12 +111,14 @@ impl MealieClient {
 impl MealieApi for MealieClient {
     async fn users_self(&self, key: &SecretString) -> Result<MealieUser, MealieError> {
         let url = self.base.join(["api", "users", "self"]);
-        self.send_json(key, self.http.get(url)).await
+        self.send_json(key, self.http.get(url).timeout(self.lookup_timeout))
+            .await
     }
 
     async fn groups_self(&self, key: &SecretString) -> Result<MealieGroup, MealieError> {
         let url = self.base.join(["api", "groups", "self"]);
-        self.send_json(key, self.http.get(url)).await
+        self.send_json(key, self.http.get(url).timeout(self.lookup_timeout))
+            .await
     }
 
     async fn create_from_ai(

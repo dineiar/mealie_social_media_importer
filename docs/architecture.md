@@ -236,7 +236,7 @@ Only `MEALIE_URL` is required. A variable set to an empty value counts as unset.
 | --- | --- | --- |
 | `MEALIE_URL` | required | Base URL the backend uses to reach Mealie, e.g. `http://mealie:9000` |
 | `MEALIE_PUBLIC_URL` | `MEALIE_URL` | Base URL for "Open in Mealie" links |
-| `MEALIE_TIMEOUT_SECS` | `330` | Per-request timeout, above Mealie's 300 s AI timeout |
+| `MEALIE_TIMEOUT_SECS` | `330` | Per-request timeout, above Mealie's 300 s AI timeout. `users/self` and `groups/self` use 10 s instead, or this value when it is lower, so a Mealie that accepts the connection and never answers fails the login check in seconds |
 | `MEALIE_CREATE_TAGS` | `true` | Sent as `createNewOrganizers` |
 | `INSTAGRAM_COOKIES_FILE` | `/config/cookies/instagram.txt` | The original cookies file |
 | `TRANSCRIPTION_BASE_URL` | empty | OpenAI-compatible speech API base URL. Empty turns transcription off. `.env.example` sets `http://whisper:8000/v1` |

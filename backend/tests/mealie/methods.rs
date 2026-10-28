@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use mealie_importer::config::Config;
 use mealie_importer::mealie::{
@@ -577,6 +577,47 @@ async fn a_body_the_client_cannot_read_is_a_decode_cause_not_a_transport_one() {
 }
 
 #[tokio::test]
+async fn the_two_self_lookups_give_up_early_while_the_other_calls_keep_the_long_timeout() {
+    let delay = Duration::from_millis(600);
+    let server = MockServer::start().await;
+    for (route, body, status) in [
+        ("/api/users/self", user_json(), 200),
+        ("/api/groups/self", group_json(true, false), 200),
+        ("/api/recipes/create/ai", json!("one-pan-lemon-orzo"), 201),
+    ] {
+        Mock::given(path(route))
+            .respond_with(
+                ResponseTemplate::new(status)
+                    .set_body_json(body)
+                    .set_delay(delay),
+            )
+            .mount(&server)
+            .await;
+    }
+    let api = client_for(&server.uri(), Duration::from_secs(10))
+        .with_lookup_timeout(Duration::from_millis(100));
+
+    for call in [Call::UsersSelf, Call::GroupsSelf] {
+        let started = Instant::now();
+        let error = call.run(&api, &Files::new()).await.unwrap_err();
+
+        assert!(
+            matches!(&error, MealieError::Unreachable(Cause::Transport(e)) if e.is_timeout()),
+            "{call:?} gave {error:?}"
+        );
+        assert!(
+            started.elapsed() < Duration::from_millis(500),
+            "{call:?} waited {:?}",
+            started.elapsed()
+        );
+    }
+    Call::CreateFromAi
+        .run(&api, &Files::new())
+        .await
+        .expect("a call that is not a self lookup waits for Mealie's answer");
+}
+
+#[tokio::test]
 async fn from_config_uses_the_configured_url_and_timeout() {
     let server = serve(ResponseTemplate::new(200).set_delay(Duration::from_millis(2500))).await;
     let vars = HashMap::from([
@@ -585,7 +626,10 @@ async fn from_config_uses_the_configured_url_and_timeout() {
     ]);
     let api = MealieClient::from_config(&Config::from_vars(&vars).unwrap()).unwrap();
 
-    let error = api.users_self(&key()).await.unwrap_err();
+    let error = api
+        .get_recipe(&key(), &slug("one-pan-lemon-orzo"))
+        .await
+        .unwrap_err();
 
     assert!(
         matches!(&error, MealieError::Unreachable(Cause::Transport(e)) if e.is_timeout()),
