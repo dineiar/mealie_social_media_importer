@@ -19,8 +19,6 @@ pub const OUTPUT_CAP: usize = 1024 * 1024;
 /// after this long.
 const DRAIN_GRACE: Duration = Duration::from_secs(2);
 
-/// The only variables a child inherits. Everything else the backend holds,
-/// `TRANSCRIPTION_API_KEY` among it, stays out of reach of the tools.
 const CHILD_ENV: &[&str] = &[
     // yt-dlp finds ffmpeg and ffprobe through it.
     "PATH",
@@ -30,13 +28,11 @@ const CHILD_ENV: &[&str] = &[
     "TMPDIR",
     // Time zone of dates in file names and metadata.
     "TZ",
-    // Text encoding of file names and tool output. LC_ALL wins over LANG, and LC_CTYPE
-    // applies when both are unset.
+    // Text encoding of file names and tool output.
     "LANG",
     "LC_ALL",
     "LC_CTYPE",
-    // Downloads go through the proxy the operator configured. Python's requests reads the
-    // lowercase spellings.
+    // Downloads go through the proxy the operator configured.
     "HTTP_PROXY",
     "HTTPS_PROXY",
     "ALL_PROXY",
