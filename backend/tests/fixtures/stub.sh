@@ -14,6 +14,10 @@ die)
 env)
     env
     ;;
+nap)
+    echo $$ >"$2"
+    sleep 60
+    ;;
 cwd)
     pwd
     ;;
