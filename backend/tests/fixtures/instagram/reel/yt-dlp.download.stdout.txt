@@ -1,0 +1,10 @@
+[Instagram] Extracting URL: https://www.instagram.com/reels/Dsynth00001/
+[Instagram] Dsynth00001: Downloading video info
+[info] Dsynth00001: Downloading 1 format(s): dash-9000000000000007v+dash-9000000000000008a
+[download] Destination: {dir}/Dsynth00001.fdash-9000000000000007v.mp4
+[download] Download completed
+[download] Destination: {dir}/Dsynth00001.fdash-9000000000000008a.m4a
+[download] Download completed
+[Merger] Merging formats into "{dir}/Dsynth00001.mp4"
+Deleting original file {dir}/Dsynth00001.fdash-9000000000000008a.m4a (pass -k to keep)
+Deleting original file {dir}/Dsynth00001.fdash-9000000000000007v.mp4 (pass -k to keep)

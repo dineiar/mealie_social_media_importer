@@ -1,0 +1,170 @@
+{
+  "case": "carousel",
+  "note": "A public carousel of six items: videos at positions 1, 3, 4 and 5, photos at 2 and 6.",
+  "tools": {
+    "gallery-dl": "1.32.18",
+    "yt-dlp": "2026.10.26"
+  },
+  "input_url": "https://www.instagram.com/p/Dsynth00001/",
+  "runs": {
+    "gallery-dl.dump-json": {
+      "args": [
+        "--cookies",
+        "<cookies>",
+        "-j",
+        "-o",
+        "videos=merged",
+        "-o",
+        "previews=video",
+        "-o",
+        "sleep-429=0",
+        "-o",
+        "max-posts=1",
+        "--",
+        "<url>"
+      ],
+      "url": "https://www.instagram.com/p/Dsynth00001/",
+      "exit_code": 0,
+      "stdout": "gallery-dl.dump-json.stdout.json",
+      "stderr": null
+    },
+    "gallery-dl.download": {
+      "args": [
+        "--cookies",
+        "<cookies>",
+        "-D",
+        "<dir>",
+        "-f",
+        "{num:>02}.{extension}",
+        "--write-info-json",
+        "--write-metadata",
+        "-o",
+        "videos=merged",
+        "-o",
+        "previews=video",
+        "-o",
+        "sleep-429=0",
+        "-o",
+        "max-posts=1",
+        "--filesize-max",
+        "250M",
+        "--",
+        "<url>"
+      ],
+      "url": "https://www.instagram.com/p/Dsynth00001/",
+      "exit_code": 0,
+      "stdout": "gallery-dl.download.stdout.txt",
+      "stderr": null,
+      "writes": [
+        {
+          "name": "01.jpg",
+          "kind": "image"
+        },
+        {
+          "name": "01.jpg.json",
+          "kind": "json",
+          "source": "files/01.jpg.json"
+        },
+        {
+          "name": "01.mp4",
+          "kind": "video"
+        },
+        {
+          "name": "01.mp4.json",
+          "kind": "json",
+          "source": "files/01.mp4.json"
+        },
+        {
+          "name": "02.jpg",
+          "kind": "image"
+        },
+        {
+          "name": "02.jpg.json",
+          "kind": "json",
+          "source": "files/02.jpg.json"
+        },
+        {
+          "name": "03.jpg",
+          "kind": "image"
+        },
+        {
+          "name": "03.jpg.json",
+          "kind": "json",
+          "source": "files/03.jpg.json"
+        },
+        {
+          "name": "03.mp4",
+          "kind": "video"
+        },
+        {
+          "name": "03.mp4.json",
+          "kind": "json",
+          "source": "files/03.mp4.json"
+        },
+        {
+          "name": "04.jpg",
+          "kind": "image"
+        },
+        {
+          "name": "04.jpg.json",
+          "kind": "json",
+          "source": "files/04.jpg.json"
+        },
+        {
+          "name": "04.mp4",
+          "kind": "video"
+        },
+        {
+          "name": "04.mp4.json",
+          "kind": "json",
+          "source": "files/04.mp4.json"
+        },
+        {
+          "name": "05.jpg",
+          "kind": "image"
+        },
+        {
+          "name": "05.jpg.json",
+          "kind": "json",
+          "source": "files/05.jpg.json"
+        },
+        {
+          "name": "05.mp4",
+          "kind": "video"
+        },
+        {
+          "name": "05.mp4.json",
+          "kind": "json",
+          "source": "files/05.mp4.json"
+        },
+        {
+          "name": "06.jpg",
+          "kind": "image"
+        },
+        {
+          "name": "06.jpg.json",
+          "kind": "json",
+          "source": "files/06.jpg.json"
+        },
+        {
+          "name": "info.json",
+          "kind": "json",
+          "source": "files/info.json"
+        }
+      ]
+    },
+    "yt-dlp.dump-json": {
+      "args": [
+        "--cookies",
+        "<cookies>",
+        "-j",
+        "<url>"
+      ],
+      "url": "https://www.instagram.com/p/Dsynth00001/",
+      "exit_code": 1,
+      "stdout": null,
+      "stderr": "yt-dlp.dump-json.stderr.txt",
+      "stdout_json_lines": 4
+    }
+  }
+}

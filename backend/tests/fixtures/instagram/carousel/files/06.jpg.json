@@ -1,0 +1,60 @@
+{
+  "post_id": "4265646449583410485",
+  "post_shortcode": "Dsynth00001",
+  "likes": 42,
+  "liked": false,
+  "pinned": [
+    9000001
+  ],
+  "description": "Synthetic caption for a fixture post. 🍋\n\nSecond synthetic paragraph.",
+  "sidecar_media_id": "4265646449583410485",
+  "sidecar_shortcode": "Dsynth00001",
+  "owner_id": "9000001",
+  "username": "synthetic_user_01",
+  "fullname": "Synthetic Author 01",
+  "post_date": "2026-01-02 03:04:05",
+  "date": "2026-01-02 03:04:05",
+  "type": "post",
+  "post_url": "https://www.instagram.com/p/Dsynth00001/",
+  "count": 6,
+  "category": "instagram",
+  "subcategory": "post",
+  "num": 6,
+  "media_id": "4265646449583410491",
+  "shortcode": "Dsynth00007",
+  "display_url": "https://scontent.cdninstagram.com/v/synthetic/010.jpg",
+  "video_url": null,
+  "width": 1440,
+  "width_original": 1440,
+  "height": 1800,
+  "height_original": 1800,
+  "tagged_users": [
+    {
+      "id": "90000035",
+      "username": "synthetic_user_17",
+      "full_name": "Synthetic Author 17"
+    },
+    {
+      "id": "900000036",
+      "username": "synthetic_user_18",
+      "full_name": "Synthetic Author 18"
+    },
+    {
+      "id": "900000037",
+      "username": "synthetic_user_19",
+      "full_name": "Synthetic Author 19"
+    },
+    {
+      "id": "9000000038",
+      "username": "synthetic_user_20",
+      "full_name": "Synthetic Author 20"
+    },
+    {
+      "id": "9000000039",
+      "username": "synthetic_user_21",
+      "full_name": "Synthetic Author 21"
+    }
+  ],
+  "filename": "010",
+  "extension": "jpg"
+}

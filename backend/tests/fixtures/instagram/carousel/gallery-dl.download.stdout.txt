@@ -1,0 +1,10 @@
+{dir}/01.mp4
+{dir}/01.jpg
+{dir}/02.jpg
+{dir}/03.mp4
+{dir}/03.jpg
+{dir}/04.mp4
+{dir}/04.jpg
+{dir}/05.mp4
+{dir}/05.jpg
+{dir}/06.jpg
