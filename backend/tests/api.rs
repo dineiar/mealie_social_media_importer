@@ -88,14 +88,29 @@ async fn responses_carry_a_request_id() {
 }
 
 #[tokio::test]
-async fn oversized_body_is_rejected() {
-    let body = vec![b'a'; 64 * 1024 + 1];
+async fn oversized_body_is_a_json_payload_too_large_error() {
+    let body = vec![b'a'; 70_000];
     let request = Request::post("/api/health")
         .header("content-length", body.len())
         .body(Body::from(body))
         .unwrap();
 
-    let (status, _, _) = send(default_app(), request).await;
+    let (status, headers, body) = send(default_app(), request).await;
 
     assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
+    assert_eq!(headers["content-type"], "application/json");
+    assert_eq!(body["error"]["kind"], "payload_too_large");
+    assert!(body["error"]["message"].is_string());
+}
+
+#[tokio::test]
+async fn wrong_method_is_a_json_method_not_allowed_error() {
+    let request = Request::post("/api/health").body(Body::empty()).unwrap();
+
+    let (status, headers, body) = send(default_app(), request).await;
+
+    assert_eq!(status, StatusCode::METHOD_NOT_ALLOWED);
+    assert_eq!(headers["content-type"], "application/json");
+    assert_eq!(body["error"]["kind"], "method_not_allowed");
+    assert!(body["error"]["message"].is_string());
 }

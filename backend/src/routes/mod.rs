@@ -5,7 +5,9 @@ use std::time::Duration;
 
 use axum::Router;
 use axum::body::Body;
-use axum::http::{Request, StatusCode};
+use axum::http::{Request, StatusCode, header};
+use axum::middleware::map_response;
+use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use tower::ServiceBuilder;
 use tower_http::limit::RequestBodyLimitLayer;
@@ -24,22 +26,47 @@ const BODY_LIMIT_BYTES: usize = 64 * 1024;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(660);
 
 pub fn router(state: AppState) -> Router {
-    Router::new()
-        .route("/api/health", get(health::health))
-        .route("/api/config", get(config::config))
-        .fallback(|| async { AppError::NotFound })
+    with_middleware(
+        Router::new()
+            .route("/api/health", get(health::health))
+            .route("/api/config", get(config::config))
+            .fallback(|| async { AppError::NotFound })
+            .method_not_allowed_fallback(|| async { AppError::MethodNotAllowed }),
+    )
+    .with_state(state)
+}
+
+fn with_middleware<S>(router: Router<S>) -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+{
+    router
         .layer(
             ServiceBuilder::new()
-                .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
-                .layer(TraceLayer::new_for_http().make_span_with(request_span))
-                .layer(PropagateRequestIdLayer::x_request_id())
                 .layer(RequestBodyLimitLayer::new(BODY_LIMIT_BYTES))
                 .layer(TimeoutLayer::with_status_code(
                     StatusCode::GATEWAY_TIMEOUT,
                     RESPONSE_TIMEOUT,
                 )),
         )
-        .with_state(state)
+        .layer(map_response(json_middleware_errors))
+        .layer(
+            ServiceBuilder::new()
+                .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
+                .layer(TraceLayer::new_for_http().make_span_with(request_span))
+                .layer(PropagateRequestIdLayer::x_request_id()),
+        )
+}
+
+async fn json_middleware_errors(response: Response) -> Response {
+    let is_json = response
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .is_some_and(|value| value.as_bytes().starts_with(b"application/json"));
+    match AppError::from_middleware_status(response.status()) {
+        Some(error) if !is_json => error.into_response(),
+        _ => response,
+    }
 }
 
 fn request_span(request: &Request<Body>) -> tracing::Span {
@@ -54,4 +81,34 @@ fn request_span(request: &Request<Body>) -> tracing::Span {
         path = request.uri().path(),
         request_id,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode};
+    use axum::routing::get;
+    use http_body_util::BodyExt;
+    use tower::ServiceExt;
+
+    use super::*;
+
+    #[tokio::test(start_paused = true)]
+    async fn a_response_that_never_starts_is_a_json_gateway_timeout() {
+        let app = with_middleware(
+            Router::<()>::new().route("/slow", get(std::future::pending::<&'static str>)),
+        );
+
+        let response = app
+            .oneshot(Request::get("/slow").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::GATEWAY_TIMEOUT);
+        assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json");
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(body["error"]["kind"], "timeout");
+        assert!(body["error"]["message"].is_string());
+    }
 }
