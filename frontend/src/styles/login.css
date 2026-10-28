@@ -1,0 +1,121 @@
+.login {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.login__header {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 24px;
+}
+
+.login__main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px 96px;
+}
+
+.card {
+  width: 100%;
+  max-width: 440px;
+  padding: 40px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+}
+
+.card__head {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.card__title {
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 1.1;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.card__text {
+  margin-top: 8px;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@media (max-width: 640px) {
+  .login__header {
+    padding: 16px;
+  }
+
+  .login__header .brand {
+    gap: 8px;
+  }
+
+  .login__header .brand__mark {
+    width: 28px;
+    height: 28px;
+  }
+
+  .login__header .brand__name {
+    font-size: 17px;
+  }
+
+  .login__main {
+    align-items: flex-start;
+    padding: 24px 16px 32px;
+  }
+
+  .card {
+    padding: 28px 22px;
+    gap: 24px;
+  }
+
+  .card__head {
+    gap: 14px;
+  }
+
+  .card__icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+  }
+
+  .card__title {
+    font-size: 28px;
+  }
+
+  .card__text {
+    font-size: 15px;
+  }
+
+  .login-form {
+    gap: 18px;
+  }
+}
