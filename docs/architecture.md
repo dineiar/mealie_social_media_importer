@@ -111,7 +111,7 @@ API types are defined once in Rust and exported to `frontend/src/api/types/` wit
 
 - `status`: `queued`, `running`, `succeeded` or `failed`.
 - Step `key`: `download`, `transcribe`, `create_recipe`, `attach_media`, in that order.
-- Step `state`: `pending`, `active`, `done`, `skipped` or `failed`. These match the five step styles in the mockups. `transcribe` is `skipped` for photo-only posts and when no speech API is configured.
+- Step `state`: `pending`, `active`, `done`, `skipped` or `failed`. These match the five step styles in the mockups. `transcribe` is `skipped` for photo-only posts, for a video with no audio track, when no speech API is configured and when ffmpeg or ffprobe is missing.
 - `error`: `{"kind", "message"}` when `failed`, otherwise null.
 - `warnings`: `[{"kind", "message"}]`, where `kind` is `transcription_failed` or `attach_failed`. A warning never changes `status`.
 - `recipe`: `{"slug", "name", "url"}` when `succeeded`. `url` is `{MEALIE_PUBLIC_URL}/g/{group_slug}/r/{slug}`.
@@ -146,11 +146,13 @@ The platform module writes everything into `/data/imports/<id>/`: the media, `ca
 
 The step runs when the post has a video and `TRANSCRIPTION_BASE_URL` is set.
 
-1. ffmpeg extracts mono MP3 at 32 kbps (about 0.24 MB per minute). ffprobe reads the duration.
+1. ffprobe reports whether the video has an audio track and how long it is. ffmpeg then writes the first audio track to `audio.mp3` as mono MP3 at 32 kbps (about 0.24 MB per minute, so 2.4 MB for ten minutes).
 2. `POST {TRANSCRIPTION_BASE_URL}/audio/transcriptions` as multipart, with `file`, `model` (`TRANSCRIPTION_MODEL`), `language` (`TRANSCRIPTION_LANGUAGE`, only when set) and `response_format=json`. Bearer `TRANSCRIPTION_API_KEY` when set.
-3. The result goes to `transcript.txt`. An empty transcript, as from a music-only reel, is a valid result.
+3. The result goes to `transcript.txt`. An empty transcript, as from a music-only reel, is a valid result, and the file is written anyway.
 
-Any error becomes a `transcription_failed` warning, and the pipeline continues with the caption only.
+The request gets 300 s, the same as Mealie allows its own AI, and the limit has no setting. Redirects are not followed, so the key only goes to the configured server. A 2xx reply must be a JSON object with a string `text`. Other fields are ignored, and a reply of any other shape, or one over 1 MiB, counts as an error, so a login page served with a 200 never becomes a transcript. The text is trimmed. The backend never logs a reply body, because a server can echo the key in its error message.
+
+The step is `skipped` when `TRANSCRIPTION_BASE_URL` is empty, when ffmpeg or ffprobe was not found at startup, when the post has no video and when the video has no audio track. Any other error becomes a `transcription_failed` warning, and the pipeline continues with the caption only.
 
 ### 3. Create the recipe
 
@@ -248,7 +250,7 @@ Only `MEALIE_URL` is required. A variable set to an empty value counts as unset.
 | `MEDIA_RETENTION_MINUTES` | `60` | Minutes files and records stay after an import finishes |
 | `MAX_MEDIA_MB` | `250` | Download cap per import |
 | `MAX_CONCURRENT_IMPORTS` | `2` | Imports running at once |
-| `TOOL_TIMEOUT_SECS` | `180` | Kill timeout per gallery-dl, yt-dlp or ffmpeg run |
+| `TOOL_TIMEOUT_SECS` | `180` | Kill timeout per gallery-dl, yt-dlp, ffmpeg or ffprobe run |
 | `TOOLS_AUTO_UPDATE` | `true` | At most once per 24 h at startup, upgrade gallery-dl and yt-dlp into `/data/tools`. On failure, fall back to the bundled versions |
 | `BIND_ADDR` | `0.0.0.0:8080` | Listen address |
 | `RUST_LOG` | `info` | Log filter |
