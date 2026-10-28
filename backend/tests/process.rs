@@ -1,9 +1,10 @@
 use std::ffi::OsString;
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use mealie_importer::process::{Exit, OUTPUT_CAP, run};
+use mealie_importer::process::{Exit, OUTPUT_CAP, RunError, run};
 use mealie_importer::tools::{Tool, ToolSet};
 use rustix::process::{Pid, test_kill_process};
 use tempfile::tempdir;
@@ -210,7 +211,7 @@ async fn a_helper_left_running_after_the_child_exits_is_killed() {
 }
 
 #[tokio::test]
-async fn a_program_that_cannot_start_is_an_error_naming_it() {
+async fn a_program_that_cannot_start_is_a_spawn_error_naming_it_and_its_cause() {
     let bin = tempdir().unwrap();
     let path = install(bin.path(), "ffmpeg", "#!/bin/sh\n");
     let tools = ToolSet::discover(bin.path(), Some(bin.path().as_os_str()));
@@ -220,5 +221,10 @@ async fn a_program_that_cannot_start_is_an_error_naming_it() {
         .await
         .unwrap_err();
 
+    let RunError::Spawn { program, source } = &error else {
+        panic!("expected a spawn error, got {error:?}");
+    };
+    assert_eq!(program, &path);
+    assert_eq!(source.kind(), io::ErrorKind::NotFound);
     assert!(error.to_string().contains("ffmpeg"), "{error}");
 }
