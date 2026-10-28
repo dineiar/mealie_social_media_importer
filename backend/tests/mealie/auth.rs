@@ -194,3 +194,8 @@ async fn a_lookup_in_flight_when_the_key_is_evicted_is_not_cached() {
     auth.user(&key).await.expect("the key is looked up again");
     assert_eq!(calls_to(&server, "/api/users/self").await, 2);
 }
+
+#[test]
+fn a_cached_user_lives_for_five_minutes() {
+    assert_eq!(USER_TTL, Duration::from_secs(300));
+}
