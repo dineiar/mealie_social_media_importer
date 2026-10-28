@@ -101,8 +101,10 @@ async fn oversized_body_is_a_json_payload_too_large_error() {
 
     assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
     assert_eq!(headers["content-type"], "application/json");
-    assert_eq!(body["error"]["kind"], "payload_too_large");
-    assert!(body["error"]["message"].is_string());
+    assert_eq!(
+        body,
+        json!({ "error": { "kind": "payload_too_large", "message": "Request body too large." } })
+    );
 }
 
 #[tokio::test]
@@ -113,6 +115,8 @@ async fn wrong_method_is_a_json_method_not_allowed_error() {
 
     assert_eq!(status, StatusCode::METHOD_NOT_ALLOWED);
     assert_eq!(headers["content-type"], "application/json");
-    assert_eq!(body["error"]["kind"], "method_not_allowed");
-    assert!(body["error"]["message"].is_string());
+    assert_eq!(
+        body,
+        json!({ "error": { "kind": "method_not_allowed", "message": "Method not allowed." } })
+    );
 }

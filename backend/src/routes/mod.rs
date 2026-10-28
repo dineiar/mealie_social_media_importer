@@ -109,7 +109,9 @@ mod tests {
         assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json");
         let bytes = response.into_body().collect().await.unwrap().to_bytes();
         let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-        assert_eq!(body["error"]["kind"], "timeout");
-        assert!(body["error"]["message"].is_string());
+        assert_eq!(
+            body,
+            serde_json::json!({ "error": { "kind": "timeout", "message": "The request took too long." } })
+        );
     }
 }
