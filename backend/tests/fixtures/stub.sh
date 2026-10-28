@@ -22,8 +22,7 @@ cwd)
     pwd
     ;;
 stdin)
-    cat
-    echo end
+    if [ /dev/stdin -ef /dev/null ]; then echo null; else echo open; fi
     ;;
 flood)
     head -c 3145728 /dev/zero | tr '\0' e >&2

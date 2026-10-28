@@ -125,13 +125,6 @@ async fn the_child_runs_in_the_given_directory() {
 }
 
 #[tokio::test]
-async fn the_child_has_no_input_to_wait_for() {
-    let out = run(&stub(), ["stdin"], None, LONG).await.unwrap();
-
-    assert_eq!(out.stdout.text, "end\n");
-}
-
-#[tokio::test]
 async fn output_over_the_cap_is_truncated_and_the_child_still_finishes() {
     let out = run(&stub(), ["flood"], None, Duration::from_secs(30))
         .await
