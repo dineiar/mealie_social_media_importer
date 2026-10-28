@@ -92,14 +92,16 @@ mod tests {
 
     #[test]
     fn a_rejected_body_is_cut_at_a_character_boundary() {
-        let body = "é".repeat(ERROR_BODY_LIMIT);
+        let body = format!("a{}", "é".repeat(ERROR_BODY_LIMIT));
+        assert!(!body.is_char_boundary(ERROR_BODY_LIMIT));
 
         let MealieError::Rejected(kept) = classify(Failure::Status(StatusCode::BAD_REQUEST, body))
         else {
             panic!("a 400 is Rejected");
         };
 
-        assert_eq!(kept.as_str().len(), ERROR_BODY_LIMIT);
+        assert_eq!(kept.as_str().len(), ERROR_BODY_LIMIT - 1);
+        assert!(kept.as_str().ends_with('é'));
     }
 
     #[test]
