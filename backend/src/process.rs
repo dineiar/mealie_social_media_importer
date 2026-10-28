@@ -111,10 +111,14 @@ pub struct RunOutput {
 }
 
 #[derive(Debug, thiserror::Error)]
-#[error("cannot run {}: {source}", program.display())]
-pub struct RunError {
-    program: PathBuf,
-    source: io::Error,
+pub enum RunError {
+    /// The program did not start, so `source.kind()` says why, for instance `NotFound` or
+    /// `PermissionDenied`.
+    #[error("cannot start {}: {source}", program.display())]
+    Spawn { program: PathBuf, source: io::Error },
+    /// The program started, and then reading its output or waiting for it failed.
+    #[error("cannot read the output of {}: {source}", program.display())]
+    Read { program: PathBuf, source: io::Error },
 }
 
 /// Runs `tool` with `args` as its argument vector, never through a shell, and waits for it for
@@ -159,16 +163,20 @@ where
     if let Some(cwd) = cwd {
         command.current_dir(cwd);
     }
-    supervise(command, timeout)
+    let program = || tool.path().to_owned();
+    let child = command.spawn().map_err(|source| RunError::Spawn {
+        program: program(),
+        source,
+    })?;
+    supervise(child, timeout)
         .await
-        .map_err(|source| RunError {
-            program: tool.path().to_owned(),
+        .map_err(|source| RunError::Read {
+            program: program(),
             source,
         })
 }
 
-async fn supervise(mut command: Command, timeout: Duration) -> io::Result<RunOutput> {
-    let mut child = command.spawn()?;
+async fn supervise(mut child: Child, timeout: Duration) -> io::Result<RunOutput> {
     let mut group = GroupKill::of(&child);
     let mut stdout = Capture::new(child.stdout.take().expect("stdout is piped"));
     let mut stderr = Capture::new(child.stderr.take().expect("stderr is piped"));
