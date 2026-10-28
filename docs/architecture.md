@@ -62,7 +62,7 @@ design/              approved mockups
 
 ## Backend API
 
-All endpoints live under `/api`. Every endpoint needs `Authorization: Bearer <Mealie API key>`, except `health`, `config` and signed file downloads. Errors come back with the matching status code and `{"error": {"kind": "...", "message": "..."}}`. The shape holds for errors raised by the router and middleware too: an unknown path returns 404 `not_found`, a wrong method 405 `method_not_allowed`, a body over 64 KiB 413 `payload_too_large`, and a response that doesn't start within 660 s 504 `timeout`. A missing key, or one Mealie answers 401 or 403, returns 401 `unauthorized`. A Mealie that can't be reached, or answers a self-lookup with a status or body the importer doesn't expect, returns 502 `mealie_unreachable`. `message` is a fixed English string, never the text of an underlying error.
+All endpoints live under `/api`. Every endpoint needs `Authorization: Bearer <Mealie API key>`, except `health`, `config` and signed file downloads. Errors come back with the matching status code and `{"error": {"kind": "...", "message": "..."}}`. The shape holds for errors raised by the router and middleware too: an unknown path returns 404 `not_found`, a wrong method 405 `method_not_allowed`, a body over 64 KiB 413 `payload_too_large`, and a response that doesn't start within 660 s 504 `timeout`. A missing key, an `Authorization` header with any scheme other than `Bearer`, or a key Mealie answers 401 or 403, returns 401 `unauthorized`. A Mealie that can't be reached, or answers a self-lookup with a status or body the importer doesn't expect, returns 502 `mealie_unreachable`. `message` is a fixed English string, never the text of an underlying error.
 
 | Method | Path | Behaviour |
 | --- | --- | --- |
