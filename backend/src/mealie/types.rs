@@ -112,6 +112,10 @@ pub struct RecipeStep {
 pub struct RecipeSettings(Map<String, Value>);
 
 impl RecipeSettings {
+    pub fn new(settings: Map<String, Value>) -> Self {
+        Self(settings)
+    }
+
     pub fn show_assets(&self) -> bool {
         self.0.get("showAssets").and_then(Value::as_bool) == Some(true)
     }
