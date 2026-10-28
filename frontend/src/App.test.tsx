@@ -178,7 +178,7 @@ describe("where the key is kept", () => {
     expect(storedValues()).toEqual({ local: [], tab: [] });
   });
 
-  it("logs in on load with the stored key, without the login screen's form", async () => {
+  it("logs in on load with the stored key", async () => {
     localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
     meIs();
 
