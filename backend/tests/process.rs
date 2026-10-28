@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use mealie_importer::process::{Exit, OUTPUT_CAP, run};
 use rustix::process::{Pid, test_kill_process};
 use tempfile::tempdir;
+use tokio::task::JoinSet;
 
 const LONG: Duration = Duration::from_secs(60);
 
@@ -151,6 +152,32 @@ async fn a_timeout_kills_the_child_and_everything_it_started() {
     assert_eq!(out.stdout.text, "started\n");
     assert!(!is_running(helper.pid().await));
     helper.assert_helper_stopped().await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_timed_out_child_is_reaped_before_run_returns() {
+    let dir = tempdir().unwrap();
+    let mut runs = JoinSet::new();
+    for n in 0..32 {
+        let pid_file = dir.path().join(format!("pid-{n}"));
+        runs.spawn(async move {
+            let args = [OsString::from("nap"), pid_file.clone().into()];
+            let out = run(&stub(), args, None, Duration::from_secs(2))
+                .await
+                .unwrap();
+            assert_eq!(out.exit, Exit::TimedOut);
+            let pid = fs::read_to_string(pid_file)
+                .unwrap()
+                .trim()
+                .parse()
+                .unwrap();
+            assert!(!is_running(pid), "the child is a zombie or still alive");
+        });
+    }
+
+    while let Some(finished) = runs.join_next().await {
+        finished.unwrap();
+    }
 }
 
 #[tokio::test]
