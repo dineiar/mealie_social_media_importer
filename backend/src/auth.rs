@@ -97,15 +97,19 @@ impl Authenticator {
             .users
             .try_get_with(digest.clone(), self.lookup(key))
             .await?;
-        let evicted_since = self
-            .evictions
-            .get(&digest)
-            .await
-            .is_some_and(|at| at > lookup.started);
-        if evicted_since {
+        if self.clock.load(Ordering::SeqCst) != lookup.started
+            && self.evicted_since(&digest, lookup.started).await
+        {
             self.users.invalidate(&digest).await;
         }
         Ok(lookup.user)
+    }
+
+    async fn evicted_since(&self, digest: &KeyDigest, started: u64) -> bool {
+        self.evictions
+            .get(digest)
+            .await
+            .is_some_and(|at| at > started)
     }
 
     async fn lookup(&self, key: &SecretString) -> Result<Lookup, MealieError> {
