@@ -106,15 +106,18 @@ async fn groups_self_reads_the_ai_provider_settings() {
 }
 
 #[tokio::test]
-async fn groups_self_without_ai_settings_is_an_unexpected_response() {
-    let server = serve(ResponseTemplate::new(200).set_body_json(json!({ "slug": "home" }))).await;
+async fn groups_self_without_ai_settings_has_both_flags_off() {
+    for body in [
+        json!({ "slug": "home" }),
+        json!({ "slug": "home", "aiProviderSettings": null }),
+    ] {
+        let server = serve(ResponseTemplate::new(200).set_body_json(body)).await;
 
-    let error = client(&server).groups_self(&key()).await.unwrap_err();
+        let group = client(&server).groups_self(&key()).await.unwrap();
 
-    assert!(
-        matches!(error, MealieError::Other(Cause::Transport(_))),
-        "{error:?}"
-    );
+        assert!(!group.ai_provider_settings.ai_enabled);
+        assert!(!group.ai_provider_settings.image_provider_enabled);
+    }
 }
 
 #[tokio::test]

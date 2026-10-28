@@ -60,11 +60,12 @@ pub struct MealieUser {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MealieGroup {
+    #[serde(default, deserialize_with = "null_as_default")]
     pub ai_provider_settings: AiProviderSettings,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
 pub struct AiProviderSettings {
     pub ai_enabled: bool,
     pub image_provider_enabled: bool,
@@ -84,9 +85,9 @@ pub struct AiRecipeRequest {
 pub struct Recipe {
     pub slug: RecipeSlug,
     pub name: Option<String>,
-    #[serde(default, deserialize_with = "null_as_empty")]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub recipe_ingredient: Vec<RecipeIngredient>,
-    #[serde(default, deserialize_with = "null_as_empty")]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub recipe_instructions: Vec<RecipeStep>,
     pub settings: Option<RecipeSettings>,
 }
@@ -152,12 +153,12 @@ pub struct AssetUpload {
     pub path: PathBuf,
 }
 
-fn null_as_empty<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+fn null_as_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
 where
     D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
+    T: Default + Deserialize<'de>,
 {
-    Ok(Option::<Vec<T>>::deserialize(deserializer)?.unwrap_or_default())
+    Ok(Option::<T>::deserialize(deserializer)?.unwrap_or_default())
 }
 
 #[cfg(test)]
@@ -273,6 +274,25 @@ mod tests {
         assert!(recipe.recipe_instructions.is_empty());
         assert!(recipe.name.is_none());
         assert!(recipe.settings.is_none());
+    }
+
+    #[test]
+    fn group_without_ai_provider_settings_has_both_flags_off() {
+        for body in [
+            json!({ "slug": "home" }),
+            json!({ "slug": "home", "aiProviderSettings": null }),
+            json!({ "slug": "home", "aiProviderSettings": {} }),
+        ] {
+            let group: MealieGroup = serde_json::from_value(body.clone()).unwrap();
+
+            assert_eq!(
+                group.ai_provider_settings,
+                AiProviderSettings::default(),
+                "{body}"
+            );
+            assert!(!group.ai_provider_settings.ai_enabled);
+            assert!(!group.ai_provider_settings.image_provider_enabled);
+        }
     }
 
     #[test]
