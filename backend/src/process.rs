@@ -19,63 +19,37 @@ pub const OUTPUT_CAP: usize = 1024 * 1024;
 /// after this long.
 const DRAIN_GRACE: Duration = Duration::from_secs(2);
 
-/// The only variables a child inherits, each with the reason it is kept. Everything else the
-/// backend holds, `TRANSCRIPTION_API_KEY` among it, stays out of reach of the tools.
-const CHILD_ENV: [(&str, &str); 18] = [
-    ("PATH", "yt-dlp finds ffmpeg and ffprobe through it"),
-    (
-        "HOME",
-        "gallery-dl and yt-dlp look for their config and cache under it",
-    ),
-    ("LANG", "text encoding of file names and tool output"),
-    ("LC_ALL", "overrides LANG when the operator sets it"),
-    (
-        "LC_CTYPE",
-        "character classes and encoding when LANG is unset",
-    ),
-    ("TZ", "time zone of dates in file names and metadata"),
-    ("TMPDIR", "where ffmpeg and yt-dlp write scratch files"),
-    (
-        "HTTP_PROXY",
-        "downloads go through the proxy the operator configured",
-    ),
-    (
-        "HTTPS_PROXY",
-        "downloads go through the proxy the operator configured",
-    ),
-    (
-        "ALL_PROXY",
-        "downloads go through the proxy the operator configured",
-    ),
-    ("NO_PROXY", "hosts the operator excluded from the proxy"),
-    (
-        "http_proxy",
-        "the lowercase spelling that Python's requests reads",
-    ),
-    (
-        "https_proxy",
-        "the lowercase spelling that Python's requests reads",
-    ),
-    (
-        "all_proxy",
-        "the lowercase spelling that Python's requests reads",
-    ),
-    (
-        "no_proxy",
-        "the lowercase spelling that Python's requests reads",
-    ),
-    (
-        "SSL_CERT_FILE",
-        "CA bundle the operator trusts for HTTPS downloads",
-    ),
-    (
-        "SSL_CERT_DIR",
-        "CA directory the operator trusts for HTTPS downloads",
-    ),
-    (
-        "REQUESTS_CA_BUNDLE",
-        "CA bundle that Python's requests reads",
-    ),
+/// The only variables a child inherits. Everything else the backend holds,
+/// `TRANSCRIPTION_API_KEY` among it, stays out of reach of the tools.
+const CHILD_ENV: &[&str] = &[
+    // yt-dlp finds ffmpeg and ffprobe through it.
+    "PATH",
+    // gallery-dl and yt-dlp look for their config and cache under it.
+    "HOME",
+    // Where ffmpeg and yt-dlp write scratch files.
+    "TMPDIR",
+    // Time zone of dates in file names and metadata.
+    "TZ",
+    // Text encoding of file names and tool output. LC_ALL wins over LANG, and LC_CTYPE
+    // applies when both are unset.
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    // Downloads go through the proxy the operator configured. Python's requests reads the
+    // lowercase spellings.
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+    "no_proxy",
+    // The CA bundle or directory the operator trusts for HTTPS downloads. REQUESTS_CA_BUNDLE
+    // is the one Python's requests reads.
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "REQUESTS_CA_BUNDLE",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -156,7 +130,7 @@ where
         .envs(
             CHILD_ENV
                 .iter()
-                .filter_map(|(name, _)| env::var_os(name).map(|value| (name, value))),
+                .filter_map(|name| env::var_os(name).map(|value| (name, value))),
         )
         .kill_on_drop(true)
         .process_group(0);
