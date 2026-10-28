@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 
 const SHELLS: [&str; 6] = ["sh", "bash", "zsh", "dash", "/bin/sh", "/bin/bash"];
 
-/// Lint groups and names that switch off `clippy::disallowed_methods` without naming it.
 const LIFTING_LINTS: [&str; 4] = [
     "clippy::all",
     "clippy::style",

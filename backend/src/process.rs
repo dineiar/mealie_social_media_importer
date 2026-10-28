@@ -110,11 +110,8 @@ pub struct RunOutput {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RunError {
-    /// The program did not start, so `source.kind()` says why, for instance `NotFound` or
-    /// `PermissionDenied`.
     #[error("cannot start {}: {source}", program.display())]
     Spawn { program: PathBuf, source: io::Error },
-    /// The program started, and then reading its output or waiting for it failed.
     #[error("cannot read the output of {}: {source}", program.display())]
     Read { program: PathBuf, source: io::Error },
 }
