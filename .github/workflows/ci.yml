@@ -111,7 +111,7 @@ jobs:
           docker run -d --name frontend-smoke --network "$network" -p 127.0.0.1::8080 frontend-image > /dev/null
           port=$(docker port frontend-smoke 8080/tcp | head -n 1 | sed 's/.*://')
           base=http://127.0.0.1:$port
-          curl -sS --retry 10 --retry-connrefused --retry-delay 1 -o /dev/null "$base/"
+          curl -sS --retry 15 --retry-all-errors --retry-delay 1 -o /dev/null "$base/"
 
           asset=$(curl -sS "$base/" | grep -o -m 1 '/assets/[^"]*\.js')
           [ -n "$asset" ] || fail "index.html links no hashed script"
