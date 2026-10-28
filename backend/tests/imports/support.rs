@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::fs;
+use std::io;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use jiff::{SignedDuration, Timestamp};
@@ -79,6 +80,17 @@ impl Harness {
         assert_eq!(imports.len(), 1, "{imports:#?}");
         imports.remove(0)
     }
+
+    pub fn config(&self) -> Config {
+        let vars = HashMap::from([
+            ("MEALIE_URL".to_owned(), "http://mealie:9000".to_owned()),
+            (
+                "DATA_DIR".to_owned(),
+                self.data_dir.path().to_str().unwrap().to_owned(),
+            ),
+        ]);
+        Config::from_vars(&vars).unwrap()
+    }
 }
 
 pub fn alice() -> UserId {
@@ -127,4 +139,37 @@ pub fn recipe() -> RecipeRef {
         &"one-pan-lemon-orzo".parse().unwrap(),
         "One-pan lemon orzo".to_owned(),
     )
+}
+
+pub type Logs = Arc<Mutex<Vec<u8>>>;
+
+struct LogWriter(Logs);
+
+impl io::Write for LogWriter {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.0.lock().unwrap().extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+/// Global, because a per-thread subscriber loses events to tracing's callsite cache when
+/// another test thread reaches a callsite first.
+pub fn capture_logs() -> Logs {
+    static LOGS: OnceLock<Logs> = OnceLock::new();
+    LOGS.get_or_init(|| {
+        let logs = Logs::default();
+        let writer = logs.clone();
+        tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::TRACE)
+            .with_ansi(false)
+            .with_writer(move || LogWriter(writer.clone()))
+            .try_init()
+            .expect("no other global subscriber");
+        logs
+    })
+    .clone()
 }
