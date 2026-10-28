@@ -4,7 +4,7 @@ Build each explorer subagent's prompt from this template. Fill in the placeholde
 
 ---
 
-Other explorers are investigating different slices of the same subsystem in parallel. Don't try to cover everything. Focus on your assigned angle and go deep.
+Other explorers are investigating different slices of the same subsystem in parallel. Don't try to cover everything. Focus on your assigned angle and go deep. Do not edit files.
 
 ## Question
 

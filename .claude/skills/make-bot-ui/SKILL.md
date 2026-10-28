@@ -1,12 +1,19 @@
 ---
 name: make-bot-ui
 description: >-
-  Use when building a custom UI (page, dashboard, buttons) that should wake a
-  Grok Bot over a webhook, when the user must provide a webhook sender key, or
-  when exposing that UI on Tailscale.
+  Cursor only. Use when building a custom UI (page, dashboard, buttons) that
+  should wake a Grok Bot over a Cursor Automations webhook, when the user must
+  provide a webhook sender key, or when exposing that UI on Tailscale. In
+  Claude Code it writes a one-line skip note and stops.
 disable-model-invocation: true
 ---
 # How to make a bot UI
+
+## In Claude Code
+
+This skill runs only in Cursor. In Claude Code, write `Skipped in Claude Code: make-bot-ui. It needs a Cursor Automations webhook routine, which Claude Code doesn't have.` and stop. Don't run the steps below.
+
+## In Cursor
 
 Build a page the user clicks. A server on this computer POSTs JSON to a webhook routine. The bot wakes with that JSON. Keep the sender key on the server. Do not put the sender key in the browser, in chat, or in this skill.
 

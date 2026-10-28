@@ -69,9 +69,11 @@ elif raw=$(gh pr list --author "@me" --state all --limit 1000 \
 fi
 [ -s "$prs" ] || echo "[]" > "$prs"
 
-# Transcripts dir: ~/.cursor/projects/<slugified-repo-path>/agent-transcripts.
-slug=$(printf '%s' "$main_wt" | sed 's#^/##; s#/#-#g')
-transcripts="$HOME/.cursor/projects/$slug/agent-transcripts"
+# Transcripts dir: ~/.claude/projects/<slug>, where the slug is the repo path
+# with every character other than a letter or digit changed to "-". It holds
+# <session>.jsonl files plus <session>/subagents/*.jsonl.
+slug=$(printf '%s' "$main_wt" | sed 's#[^A-Za-z0-9]#-#g')
+transcripts="$HOME/.claude/projects/$slug"
 now=$(date +%s)
 
 echo "# base: $base"
@@ -112,8 +114,14 @@ git worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r wt;
 	# followed by "/" or a quote so glint-482 does not match glint-482-r37.
 	last="-"; last_ts=0
 	if [ -d "$transcripts" ]; then
-		f=$(rg -l -e "${wt}/" -e "${wt}\"" "$transcripts" 2>/dev/null \
-			| xargs stat "${stat_fmt[@]}" 2>/dev/null | sort -rn | head -1)
+		# Claude Code ships rg as a shell function, which this script can't see.
+		# Without the grep fallback the scan finds nothing and the worktree looks unused.
+		if command -v rg >/dev/null 2>&1; then
+			hits=$(rg -l -g '*.jsonl' -e "${wt}/" -e "${wt}\"" "$transcripts" 2>/dev/null)
+		else
+			hits=$(grep -rlF --include='*.jsonl' -e "${wt}/" -e "${wt}\"" "$transcripts" 2>/dev/null)
+		fi
+		f=$(printf '%s' "$hits" | xargs stat "${stat_fmt[@]}" 2>/dev/null | sort -rn | head -1)
 		if [ -n "$f" ]; then last_ts=$(echo "$f" | awk '{print $1}')
 			last=$(fmt_day "$last_ts" 2>/dev/null); fi
 	fi
