@@ -228,3 +228,18 @@ async fn a_program_that_cannot_start_is_a_spawn_error_naming_it_and_its_cause() 
     assert_eq!(source.kind(), io::ErrorKind::NotFound);
     assert!(error.to_string().contains("ffmpeg"), "{error}");
 }
+
+#[tokio::test]
+async fn a_missing_working_directory_is_not_reported_as_a_missing_tool() {
+    let parent = tempdir().unwrap();
+    let missing = parent.path().join("gone");
+
+    let error = run(&stub(), ["cwd"], Some(&missing), LONG)
+        .await
+        .unwrap_err();
+
+    let RunError::MissingWorkingDirectory { dir } = &error else {
+        panic!("expected a missing working directory error, got {error:?}");
+    };
+    assert_eq!(dir, &missing);
+}

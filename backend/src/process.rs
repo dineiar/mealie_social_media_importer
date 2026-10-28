@@ -110,6 +110,8 @@ pub struct RunOutput {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RunError {
+    #[error("the working directory {} does not exist", dir.display())]
+    MissingWorkingDirectory { dir: PathBuf },
     #[error("cannot start {}: {source}", program.display())]
     Spawn { program: PathBuf, source: io::Error },
     #[error("cannot read the output of {}: {source}", program.display())]
@@ -156,6 +158,13 @@ where
         .kill_on_drop(true)
         .process_group(0);
     if let Some(cwd) = cwd {
+        // A failed spawn reports NotFound for a missing directory as well as a missing
+        // program, so the directory is checked first to keep the two apart.
+        if !cwd.is_dir() {
+            return Err(RunError::MissingWorkingDirectory {
+                dir: cwd.to_owned(),
+            });
+        }
         command.current_dir(cwd);
     }
     let program = || tool.path().to_owned();
