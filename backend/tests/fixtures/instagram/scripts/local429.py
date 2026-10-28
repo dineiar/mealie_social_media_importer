@@ -17,7 +17,6 @@ import threading
 
 import requests
 
-HOST = "https://www.instagram.com/"
 hits = []
 
 
@@ -46,9 +45,7 @@ def main():
     send = requests.Session.request
 
     def redirected(self, method, url, **kwargs):
-        if url.startswith(HOST):
-            url = local + url.removeprefix(HOST)
-        return send(self, method, url, **kwargs)
+        return send(self, method, local + url.split("/", 3)[3], **kwargs)
 
     requests.Session.request = redirected
 

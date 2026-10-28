@@ -343,9 +343,8 @@ def main():
             "exit_code": run["exit"],
             "stdout": None,
             "stderr": None,
+            "cookie_changes": run["cookie_changes"],
         }
-        if run["cookie_changes"] is not None:
-            entry["cookie_changes"] = run["cookie_changes"]
         if kind == "gallery-dl.dump-json":
             if (kind, "stdout") in documents:
                 entry["stdout"] = put(f"{kind}.stdout.json", dumps(ident.scrub_document(documents[(kind, "stdout")])))
