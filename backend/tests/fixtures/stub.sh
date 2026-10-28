@@ -11,6 +11,9 @@ exit)
 die)
     kill -9 $$
     ;;
+env)
+    env
+    ;;
 cwd)
     pwd
     ;;
