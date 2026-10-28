@@ -1,8 +1,6 @@
-export const UNKNOWN_ERROR_KIND = "unknown";
+import type { ErrorBody } from "./types/ErrorBody";
 
-export interface ErrorBody {
-  error: { kind: string; message: string };
-}
+export const UNKNOWN_ERROR_KIND = "unknown";
 
 export class ApiError extends Error {
   readonly status: number;

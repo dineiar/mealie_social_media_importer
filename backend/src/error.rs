@@ -2,6 +2,7 @@ use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde::Serialize;
+use ts_rs::TS;
 
 #[derive(Debug)]
 pub enum AppError {
@@ -52,12 +53,14 @@ impl AppError {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 struct ErrorBody {
     error: ErrorDetail,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 struct ErrorDetail {
     kind: &'static str,
     message: &'static str,
