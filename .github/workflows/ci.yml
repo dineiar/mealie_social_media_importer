@@ -151,5 +151,7 @@ jobs:
 
           [ "$(docker exec frontend-smoke id -u)" != 0 ] || fail "container runs as root"
           [ -z "$(docker exec frontend-smoke ps -o user= | grep -vx nginx)" ] || fail "an nginx process is not the nginx user"
-          docker exec frontend-smoke netstat -ltn | grep -q ':8080 ' || fail "nothing listens on 8080"
-          echo "ok: non-root, listening on 8080"
+          listeners=$(docker exec frontend-smoke netstat -ltn)
+          grep -q '0.0.0.0:8080 ' <<< "$listeners" || fail "nothing listens on 8080 over IPv4"
+          grep -q ':::8080 ' <<< "$listeners" || fail "nothing listens on 8080 over IPv6"
+          echo "ok: non-root, listening on 8080 over IPv4 and IPv6"
