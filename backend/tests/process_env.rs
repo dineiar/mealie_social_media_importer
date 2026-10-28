@@ -39,7 +39,6 @@ async fn the_child_gets_only_the_variables_it_needs() {
     assert!(!child.contains_key("MEALIE_URL"));
     assert_eq!(child["PATH"], "/usr/bin:/bin");
 
-    // SAFETY: as above.
     unsafe { env::set_var("PATH", ":relative/bin:.") };
 
     assert!(!child_env().await.contains_key("PATH"));
