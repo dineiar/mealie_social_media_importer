@@ -5,8 +5,9 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-/// The slug names a recipe in every later call. An empty slug or a dot segment would
-/// make `BaseUrl::join` drop it from the path and hit a collection endpoint instead.
+/// The slug names a recipe in every later call. An empty slug, a dot segment, or a control
+/// character would make `BaseUrl::join` drop it or change it, because the url crate strips
+/// tab, CR and LF before it checks for dots, and the request would hit another endpoint.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(try_from = "String")]
 pub struct RecipeSlug(String);
@@ -25,7 +26,7 @@ impl FromStr for RecipeSlug {
     type Err = InvalidSlug;
 
     fn from_str(value: &str) -> Result<Self, InvalidSlug> {
-        if matches!(value, "" | "." | "..") {
+        if matches!(value, "" | "." | "..") || value.chars().any(char::is_control) {
             Err(InvalidSlug)
         } else {
             Ok(Self(value.to_owned()))
@@ -167,13 +168,57 @@ mod tests {
 
     #[test]
     fn slug_rejects_what_would_leave_the_path() {
-        for bad in ["", ".", ".."] {
+        for bad in ["", ".", "..", ".\n.", "\n", "\t", "a\rb", "..\n", "a\u{0}b"] {
             assert!(bad.parse::<RecipeSlug>().is_err(), "{bad:?}");
         }
         assert_eq!(
             "one-pan-lemon-orzo".parse::<RecipeSlug>().unwrap().as_str(),
             "one-pan-lemon-orzo"
         );
+    }
+
+    #[test]
+    fn an_accepted_slug_is_the_last_path_segment_of_its_url() {
+        let vars = std::collections::HashMap::from([(
+            "MEALIE_URL".to_owned(),
+            "http://mealie.test/v1".to_owned(),
+        )]);
+        let base = crate::config::Config::from_vars(&vars).unwrap().mealie_url;
+
+        let sample = ('\0'..='\u{3ff}').chain(['\u{2028}', '\u{200b}', '\u{feff}', char::MAX]);
+        for c in sample {
+            for slug in [format!("a{c}b"), format!(".{c}."), c.to_string()] {
+                if slug.parse::<RecipeSlug>().is_err() {
+                    continue;
+                }
+                let url = base.join(["api", "recipes", &slug]);
+                let segments: Vec<_> = url.path_segments().unwrap().collect();
+                assert_eq!(segments.len(), 4, "{slug:?} gave {url}");
+                assert_eq!(&segments[..3], ["v1", "api", "recipes"], "{slug:?}");
+                assert_eq!(
+                    percent_decode(segments[3]),
+                    slug.as_bytes(),
+                    "{slug:?} gave {url}"
+                );
+            }
+        }
+    }
+
+    fn percent_decode(segment: &str) -> Vec<u8> {
+        let bytes = segment.as_bytes();
+        let mut out = Vec::new();
+        let mut at = 0;
+        while at < bytes.len() {
+            if bytes[at] == b'%' {
+                let hex = std::str::from_utf8(&bytes[at + 1..at + 3]).unwrap();
+                out.push(u8::from_str_radix(hex, 16).unwrap());
+                at += 3;
+            } else {
+                out.push(bytes[at]);
+                at += 1;
+            }
+        }
+        out
     }
 
     #[test]
