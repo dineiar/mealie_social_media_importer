@@ -10,18 +10,57 @@ const LIFTING_LINTS: [&str; 4] = [
     "warnings",
 ];
 
-fn lint_attributes(text: &str) -> Vec<String> {
-    let squeezed: String = text.chars().filter(|c| !c.is_whitespace()).collect();
+fn without_string_literals(text: &str) -> String {
+    let mut out = String::new();
+    let mut chars = text.chars().peekable();
+    let mut in_string = false;
+    while let Some(c) = chars.next() {
+        match (in_string, c) {
+            (true, '\\') => {
+                chars.next();
+            }
+            (true, '"') => in_string = false,
+            (true, _) => {}
+            (false, '\'') if chars.peek() == Some(&'"') => {
+                chars.next();
+                chars.next();
+            }
+            (false, '"') => in_string = true,
+            (false, _) => out.push(c),
+        }
+    }
+    out
+}
+
+fn lint_paths(text: &str) -> Vec<String> {
+    let squeezed: String = without_string_literals(text)
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .collect();
     squeezed
         .split("#[")
         .skip(1)
         .chain(squeezed.split("#![").skip(1))
-        .map(|rest| rest.split(']').next().unwrap_or(rest).to_owned())
+        .map(|rest| rest.split(']').next().unwrap_or(rest))
         .filter(|attribute| {
             ["allow(", "expect(", "warn("]
                 .iter()
                 .any(|key| attribute.contains(key))
         })
+        .flat_map(|attribute| {
+            attribute
+                .split(|c: char| !(c.is_alphanumeric() || c == '_' || c == ':'))
+                .filter(|path| !path.is_empty())
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+fn lifting_lints(text: &str) -> Vec<String> {
+    lint_paths(text)
+        .into_iter()
+        .filter(|path| LIFTING_LINTS.contains(&path.as_str()))
         .collect()
 }
 
@@ -84,13 +123,40 @@ fn no_source_but_process_rs_allows_a_lint_group_that_includes_the_ban() {
         if path.ends_with("process.rs") {
             continue;
         }
-        for attribute in lint_attributes(&text) {
-            for lint in LIFTING_LINTS {
-                assert!(
-                    !attribute.contains(lint),
-                    "{path:?} has #[{attribute}], which lifts the ban on spawning"
-                );
-            }
-        }
+        let lifting = lifting_lints(&text);
+        assert!(
+            lifting.is_empty(),
+            "{path:?} allows {lifting:?}, which lifts the ban on spawning"
+        );
+    }
+}
+
+#[test]
+fn the_scan_catches_every_way_to_allow_a_group_that_includes_the_ban() {
+    let violations = [
+        "#[allow(clippy::all)]",
+        "#![allow(clippy::style)]",
+        "#[expect(clippy::disallowed_methods)]",
+        "#[warn(warnings)]",
+        "#[allow(dead_code, clippy::all)]",
+        "#[cfg_attr(test, allow(clippy::style))]",
+        "#[allow(\n    clippy::all,\n    reason = \"x\"\n)]",
+        "#[allow(clippy :: disallowed_methods)]",
+    ];
+    for source in violations {
+        assert!(!lifting_lints(source).is_empty(), "missed {source}");
+    }
+}
+
+#[test]
+fn the_scan_accepts_attributes_that_only_mention_a_lint_name_in_passing() {
+    let innocent = [
+        "#[allow(dead_code, reason = \"silences warnings until the downloader uses it\")]",
+        "#[expect(clippy::allow_attributes, reason = \"clippy::all stays on\")]",
+        "#[allow(clippy::too_many_arguments)]",
+        "#[allow(dead_code, reason = \"a ] in the reason, and clippy::style\")]",
+    ];
+    for source in innocent {
+        assert!(lifting_lints(source).is_empty(), "flagged {source}");
     }
 }
