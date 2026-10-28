@@ -155,3 +155,9 @@ jobs:
           grep -q '0.0.0.0:8080 ' <<< "$listeners" || fail "nothing listens on 8080 over IPv4"
           grep -q ':::8080 ' <<< "$listeners" || fail "nothing listens on 8080 over IPv6"
           echo "ok: non-root, listening on 8080 over IPv4 and IPv6"
+
+          if output=$(docker run --rm --user 1000:1000 frontend-image 2>&1); then
+            fail "a container that cannot write conf.d started"
+          fi
+          grep -q 'default.conf was not generated' <<< "$output" || fail "no message for the unwritable conf.d: $output"
+          echo "ok: an unwritable conf.d stops the container"
