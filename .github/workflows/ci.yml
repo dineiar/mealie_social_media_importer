@@ -88,7 +88,7 @@ jobs:
           set -eu
 
           network=frontend-smoke
-          trap 'docker rm -f frontend-smoke backend-smoke > /dev/null 2>&1 || true; docker network rm "$network" > /dev/null 2>&1 || true' EXIT
+          trap 'docker rm -f frontend-smoke frontend-down frontend-user backend-smoke > /dev/null 2>&1 || true; docker network rm "$network" > /dev/null 2>&1 || true' EXIT
           fail() {
             echo "FAIL: $*" >&2
             docker logs frontend-smoke >&2 || true
@@ -117,19 +117,22 @@ jobs:
           [ -n "$asset" ] || fail "index.html links no hashed script"
 
           security=(
-            "Content-Security-Policy: default-src 'self'"
+            "Content-Security-Policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
             "X-Content-Type-Options: nosniff"
             "X-Frame-Options: DENY"
             "Referrer-Policy: no-referrer"
-            "Permissions-Policy: camera=()"
+            "Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()"
           )
-          header_of() { curl -sS -D - -o /dev/null "$base$1"; }
-          for path in / /index.html /some/deep/link "$asset" /assets/missing.js /api/health /api/missing; do
-            headers=$(header_of "$path")
+          header_of() { curl -sS -D - -o /dev/null "$base$1" | tr -d '\r'; }
+          expect_security() {
+            headers=$(header_of "$1")
             for expected in "${security[@]}"; do
-              grep -qiF "$expected" <<< "$headers" || fail "$path lacks '$expected'"
+              grep -qxF "$expected" <<< "$headers" || fail "$1 lacks the exact header '$expected'"
             done
-            echo "ok: security headers on $path"
+            echo "ok: security headers on $1"
+          }
+          for path in / /index.html /some/deep/link "$asset" /assets/missing.js /api/health /api/missing; do
+            expect_security "$path"
           done
 
           expect_cache() {
@@ -156,8 +159,30 @@ jobs:
           grep -q ':::8080 ' <<< "$listeners" || fail "nothing listens on 8080 over IPv6"
           echo "ok: non-root, listening on 8080 over IPv4 and IPv6"
 
-          if output=$(docker run --rm --user 1000:1000 frontend-image 2>&1); then
-            fail "a container that cannot write conf.d started"
-          fi
-          grep -q 'default.conf was not generated' <<< "$output" || fail "no message for the unwritable conf.d: $output"
+          docker run -d --name frontend-user --user 1000:1000 frontend-image > /dev/null
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            [ "$(docker inspect -f '{{.State.Status}}' frontend-user)" = exited ] && break
+            sleep 1
+          done
+          [ "$(docker inspect -f '{{.State.ExitCode}}' frontend-user)" = 1 ] || fail "a container that cannot write conf.d did not exit with 1"
+          grep -q 'default.conf was not generated' <<< "$(docker logs frontend-user 2>&1)" || fail "no message for the unwritable conf.d"
           echo "ok: an unwritable conf.d stops the container"
+
+          signed='/api/files/0b6c/video-1.mp4?exp=1792520000&sig=SECRETSIG'
+          expect_no_query_in_logs() {
+            curl -sS -o /dev/null "$base$signed"
+            logs=$(docker logs "$1" 2>&1)
+            if grep -q SECRETSIG <<< "$logs"; then fail "a signed link's query string reached the logs of $1"; fi
+            grep -q 'GET /api/files/0b6c/video-1.mp4 HTTP' <<< "$logs" || fail "$1 did not log the file request by path"
+            echo "ok: no query string in the logs of $1"
+          }
+          expect_no_query_in_logs frontend-smoke
+
+          docker run -d --name frontend-down --network "$network" -p 127.0.0.1::8080 \
+            -e BACKEND_URL=http://no-such-backend:8080 frontend-image > /dev/null
+          port=$(docker port frontend-down 8080/tcp | head -n 1 | sed 's/.*://')
+          base=http://127.0.0.1:$port
+          curl -fsS --retry 20 --retry-all-errors --retry-delay 1 -o /dev/null "$base/"
+          [ "$(curl -sS "$base/api/health" -o /dev/null -w '%{http_code}')" = 502 ] || fail "an unreachable backend is not a 502"
+          expect_security /api/health
+          expect_no_query_in_logs frontend-down
