@@ -5,9 +5,9 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-/// The slug names a recipe in every later call. An empty slug, a dot segment, or a control
-/// character would make `BaseUrl::join` drop it or change it, because the url crate strips
-/// tab, CR and LF before it checks for dots, and the request would hit another endpoint.
+/// An empty slug, a dot segment, or a control character would make `BaseUrl::join` drop or
+/// change it, because the url crate strips tab, CR and LF before it checks for dots, and the
+/// request would hit another endpoint.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(try_from = "String")]
 pub struct RecipeSlug(String);

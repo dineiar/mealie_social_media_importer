@@ -26,8 +26,6 @@ pub enum MealieError {
 pub enum Cause {
     #[error("HTTP status {0}")]
     Status(StatusCode),
-    /// The exchange itself failed: a timeout, a refused or dropped connection, or a
-    /// request reqwest could not build.
     #[error(transparent)]
     Transport(reqwest::Error),
     /// Mealie answered 2xx with a body the client could not read: not JSON, a missing

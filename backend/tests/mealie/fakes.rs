@@ -12,7 +12,6 @@ use serde_json::{Value, json};
 
 use crate::support::{ai_request, key, slug};
 
-/// Builds every value the real client returns, from outside the `mealie` module.
 struct FakeMealie {
     ai_enabled: bool,
 }
