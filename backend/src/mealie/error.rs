@@ -36,7 +36,7 @@ pub enum Cause {
 pub struct RejectedBody(String);
 
 impl RejectedBody {
-    fn new(mut body: String) -> Self {
+    pub fn new(mut body: String) -> Self {
         body.truncate(body.floor_char_boundary(ERROR_BODY_LIMIT));
         Self(body)
     }
