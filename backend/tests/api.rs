@@ -1,10 +1,12 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use axum::Router;
 use axum::body::Body;
 use axum::http::{HeaderMap, Request, StatusCode};
 use http_body_util::BodyExt;
 use mealie_importer::config::Config;
+use mealie_importer::mealie::MealieClient;
 use mealie_importer::{AppState, router};
 use serde_json::{Value, json};
 use tower::ServiceExt;
@@ -14,9 +16,9 @@ fn app(pairs: &[(&str, &str)]) -> Router {
         .iter()
         .map(|(name, value)| (name.to_string(), value.to_string()))
         .collect();
-    router(AppState::new(
-        Config::from_vars(&vars).expect("configuration is valid"),
-    ))
+    let config = Config::from_vars(&vars).expect("configuration is valid");
+    let mealie = MealieClient::from_config(&config).expect("client builds");
+    router(AppState::new(config, Arc::new(mealie)))
 }
 
 fn default_app() -> Router {

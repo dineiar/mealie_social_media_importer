@@ -1,5 +1,6 @@
 mod config;
 mod health;
+mod me;
 
 use std::time::Duration;
 
@@ -30,6 +31,7 @@ pub fn router(state: AppState) -> Router {
         Router::new()
             .route("/api/health", get(health::health))
             .route("/api/config", get(config::config))
+            .route("/api/me", get(me::me))
             .fallback(|| async { AppError::NotFound })
             .method_not_allowed_fallback(|| async { AppError::MethodNotAllowed }),
     )

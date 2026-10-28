@@ -8,31 +8,19 @@ use serde_json::json;
 use wiremock::matchers::{any, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-use crate::support::{Call, Files, client, key, kind, serve, user_json};
+use crate::support::{Call, Files, calls_to, client, key, kind, serve, user_json, users_ok};
 
 type Lookup = Result<MealieUser, Arc<MealieError>>;
 
-fn authenticator(server: &MockServer, ttl: Duration) -> Authenticator {
-    Authenticator::new(Arc::new(client(server)), ttl)
+fn authenticator(server: &MockServer) -> Authenticator {
+    Authenticator::new(Arc::new(client(server)), USER_TTL)
 }
 
-async fn users_self_calls(server: &MockServer) -> usize {
-    server
-        .received_requests()
-        .await
-        .unwrap()
-        .iter()
-        .filter(|request| request.url.path() == "/api/users/self")
-        .count()
-}
-
-/// Answers the first `users/self` with the user and everything after, that one included,
-/// with `status`.
 async fn accepts_the_key_once_then(status: u16) -> MockServer {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/api/users/self"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(user_json()))
+        .respond_with(users_ok())
         .up_to_n_times(1)
         .mount(&server)
         .await;
@@ -49,15 +37,15 @@ fn rejected(lookup: &Lookup) -> bool {
 
 #[tokio::test]
 async fn a_second_lookup_within_the_ttl_makes_no_users_self_call() {
-    let server = serve(ResponseTemplate::new(200).set_body_json(user_json())).await;
-    let auth = authenticator(&server, USER_TTL);
+    let server = serve(users_ok()).await;
+    let auth = authenticator(&server);
 
     let first = auth.user(&key()).await.unwrap();
     let second = auth.user(&key()).await.unwrap();
 
     assert_eq!(first.id, "eaab0b0e-0df9-402c-8f5c-90cced537b01");
     assert_eq!(second.id, first.id);
-    assert_eq!(users_self_calls(&server).await, 1);
+    assert_eq!(calls_to(&server, "/api/users/self").await, 1);
 }
 
 #[tokio::test]
@@ -71,7 +59,7 @@ async fn each_key_gets_its_own_user() {
             .mount(&server)
             .await;
     }
-    let auth = authenticator(&server, USER_TTL);
+    let auth = authenticator(&server);
     let [ana, bo] = ["key-ana", "key-bo"].map(SecretString::from);
 
     let ids = [
@@ -81,22 +69,22 @@ async fn each_key_gets_its_own_user() {
     ];
 
     assert_eq!(ids, ["id-ana", "id-bo", "id-ana"]);
-    assert_eq!(users_self_calls(&server).await, 2);
+    assert_eq!(calls_to(&server, "/api/users/self").await, 2);
 }
 
 #[tokio::test]
 async fn the_cache_forgets_a_user_after_the_ttl() {
-    let server = serve(ResponseTemplate::new(200).set_body_json(user_json())).await;
-    let auth = authenticator(&server, Duration::from_millis(300));
+    let server = serve(users_ok()).await;
+    let auth = Authenticator::new(Arc::new(client(&server)), Duration::from_millis(300));
 
     auth.user(&key()).await.unwrap();
     auth.user(&key()).await.unwrap();
-    assert_eq!(users_self_calls(&server).await, 1);
+    assert_eq!(calls_to(&server, "/api/users/self").await, 1);
 
     tokio::time::sleep(Duration::from_millis(400)).await;
     auth.user(&key()).await.unwrap();
 
-    assert_eq!(users_self_calls(&server).await, 2);
+    assert_eq!(calls_to(&server, "/api/users/self").await, 2);
 }
 
 #[tokio::test]
@@ -107,13 +95,13 @@ async fn first_lookups_that_overlap_share_one_users_self_call() {
             .set_delay(Duration::from_millis(150)),
     )
     .await;
-    let auth = authenticator(&server, USER_TTL);
+    let auth = authenticator(&server);
     let key = key();
 
     let (a, b, c) = tokio::join!(auth.user(&key), auth.user(&key), auth.user(&key));
 
     assert!(a.is_ok() && b.is_ok() && c.is_ok());
-    assert_eq!(users_self_calls(&server).await, 1);
+    assert_eq!(calls_to(&server, "/api/users/self").await, 1);
 }
 
 #[tokio::test]
@@ -125,10 +113,10 @@ async fn a_failed_lookup_is_not_cached() {
         .mount(&server)
         .await;
     Mock::given(any())
-        .respond_with(ResponseTemplate::new(200).set_body_json(user_json()))
+        .respond_with(users_ok())
         .mount(&server)
         .await;
-    let auth = authenticator(&server, USER_TTL);
+    let auth = authenticator(&server);
 
     let first = auth.user(&key()).await;
     let second = auth.user(&key()).await;
@@ -141,20 +129,22 @@ async fn a_failed_lookup_is_not_cached() {
 }
 
 #[tokio::test]
-async fn an_unauthorized_answer_to_any_call_makes_the_next_lookup_ask_mealie_again() {
+async fn a_401_or_403_to_any_call_makes_the_next_lookup_ask_mealie_again() {
     let files = Files::new();
-    for call in Call::ALL {
-        let server = accepts_the_key_once_then(401).await;
-        let auth = authenticator(&server, USER_TTL);
-        auth.user(&key()).await.expect("the first lookup works");
+    for status in [401, 403] {
+        for call in Call::ALL {
+            let server = accepts_the_key_once_then(status).await;
+            let auth = authenticator(&server);
+            auth.user(&key()).await.expect("the first lookup works");
 
-        let error = call.run(&auth, &files).await.unwrap_err();
+            let error = call.run(&auth, &files).await.unwrap_err();
 
-        assert_eq!(kind(&error), "Unauthorized", "{call:?}");
-        assert!(
-            rejected(&auth.user(&key()).await),
-            "{call:?} left the key cached"
-        );
+            assert_eq!(kind(&error), "Unauthorized", "{call:?} with {status}");
+            assert!(
+                rejected(&auth.user(&key()).await),
+                "{call:?} with {status} left the key cached"
+            );
+        }
     }
 }
 
@@ -164,7 +154,7 @@ async fn any_other_failure_leaves_the_cached_user_alone() {
     for status in [400, 404, 500] {
         for call in Call::ALL {
             let server = accepts_the_key_once_then(status).await;
-            let auth = authenticator(&server, USER_TTL);
+            let auth = authenticator(&server);
             auth.user(&key()).await.expect("the first lookup works");
 
             let error = call.run(&auth, &files).await.unwrap_err();

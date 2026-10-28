@@ -4,8 +4,12 @@ use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 use ts_rs::TS;
 
+use crate::mealie::MealieError;
+
 #[derive(Debug)]
 pub enum AppError {
+    Unauthorized,
+    MealieUnreachable,
     NotFound,
     MethodNotAllowed,
     PayloadTooLarge,
@@ -21,6 +25,16 @@ struct Wire {
 impl AppError {
     const fn wire(&self) -> Wire {
         match self {
+            Self::Unauthorized => Wire {
+                status: StatusCode::UNAUTHORIZED,
+                kind: "unauthorized",
+                message: "A valid Mealie API key is required.",
+            },
+            Self::MealieUnreachable => Wire {
+                status: StatusCode::BAD_GATEWAY,
+                kind: "mealie_unreachable",
+                message: "Mealie did not respond.",
+            },
             Self::NotFound => Wire {
                 status: StatusCode::NOT_FOUND,
                 kind: "not_found",
@@ -44,6 +58,19 @@ impl AppError {
         }
     }
 
+    pub fn from_identity_lookup(error: &MealieError) -> Self {
+        match error {
+            MealieError::Unauthorized => Self::Unauthorized,
+            MealieError::Unreachable(_)
+            | MealieError::Rejected(_)
+            | MealieError::NotFound
+            | MealieError::Other(_) => {
+                tracing::warn!(?error, "mealie call failed");
+                Self::MealieUnreachable
+            }
+        }
+    }
+
     pub fn from_middleware_status(status: StatusCode) -> Option<Self> {
         match status {
             StatusCode::PAYLOAD_TOO_LARGE => Some(Self::PayloadTooLarge),
@@ -60,7 +87,6 @@ struct ErrorBody {
 }
 
 #[derive(Serialize, TS)]
-#[ts(export)]
 struct ErrorDetail {
     kind: &'static str,
     message: &'static str,

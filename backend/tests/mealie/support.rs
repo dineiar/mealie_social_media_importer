@@ -68,9 +68,13 @@ pub fn ai_request(content: &str) -> AiRecipeRequest {
     }
 }
 
-pub fn base_url(url: &str) -> BaseUrl {
+pub fn config(url: &str) -> Config {
     let vars = HashMap::from([("MEALIE_URL".to_owned(), url.to_owned())]);
-    Config::from_vars(&vars).expect("a valid URL").mealie_url
+    Config::from_vars(&vars).expect("a valid URL")
+}
+
+pub fn base_url(url: &str) -> BaseUrl {
+    config(url).mealie_url
 }
 
 pub fn client_for(url: &str, timeout: Duration) -> MealieClient {
@@ -81,13 +85,27 @@ pub fn client(server: &MockServer) -> MealieClient {
     client_for(&server.uri(), Duration::from_secs(10))
 }
 
-pub fn refused_client() -> MealieClient {
+pub fn refused_url() -> String {
     let port = TcpListener::bind("127.0.0.1:0")
         .unwrap()
         .local_addr()
         .unwrap()
         .port();
-    client_for(&format!("http://127.0.0.1:{port}"), Duration::from_secs(10))
+    format!("http://127.0.0.1:{port}")
+}
+
+pub fn refused_client() -> MealieClient {
+    client_for(&refused_url(), Duration::from_secs(10))
+}
+
+pub async fn calls_to(server: &MockServer, request_path: &str) -> usize {
+    server
+        .received_requests()
+        .await
+        .unwrap()
+        .iter()
+        .filter(|request| request.url.path() == request_path)
+        .count()
 }
 
 pub fn user_json() -> Value {
@@ -119,6 +137,14 @@ pub fn group_json(ai_enabled: bool, image_enabled: bool) -> Value {
             "imageProviderEnabled": image_enabled,
         },
     })
+}
+
+pub fn users_ok() -> ResponseTemplate {
+    ResponseTemplate::new(200).set_body_json(user_json())
+}
+
+pub fn groups_ok() -> ResponseTemplate {
+    ResponseTemplate::new(200).set_body_json(group_json(true, false))
 }
 
 pub fn kind(error: &MealieError) -> &'static str {

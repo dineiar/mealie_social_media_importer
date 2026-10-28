@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Fails when the committed files in frontend/src/api/types differ from a fresh export.
-# It deletes the directory first so the files of removed types show up too. A plain
-# `cargo test` rewrites the same files, so this compares against git, not the working tree.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

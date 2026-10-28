@@ -2,9 +2,11 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader, IsTerminal, Write};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 use std::process::ExitCode;
+use std::sync::Arc;
 use std::time::Duration;
 
 use mealie_importer::config::{self, Config, ConfigError, LogFormat};
+use mealie_importer::mealie::MealieClient;
 use mealie_importer::{AppState, router};
 use tokio::net::TcpListener;
 use tokio::signal::unix::{SignalKind, signal};
@@ -46,6 +48,13 @@ fn report(errors: &[ConfigError]) -> ExitCode {
 #[tokio::main]
 async fn serve(config: Config) -> ExitCode {
     init_logging(&config.log_filter, config.log_format);
+    let mealie = match MealieClient::from_config(&config) {
+        Ok(mealie) => mealie,
+        Err(error) => {
+            tracing::error!(%error, "cannot build the Mealie client");
+            return ExitCode::FAILURE;
+        }
+    };
     let addr = config.bind_addr;
     let listener = match TcpListener::bind(addr).await {
         Ok(listener) => listener,
@@ -55,7 +64,7 @@ async fn serve(config: Config) -> ExitCode {
         }
     };
     tracing::info!(%addr, version = env!("CARGO_PKG_VERSION"), "listening");
-    let app = router(AppState::new(config));
+    let app = router(AppState::new(config, Arc::new(mealie)));
     match axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await
