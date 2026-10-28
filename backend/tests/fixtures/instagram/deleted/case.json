@@ -26,7 +26,13 @@
       "url": "https://www.instagram.com/p/Dsynth00001/",
       "exit_code": 0,
       "stdout": "gallery-dl.dump-json.stdout.json",
-      "stderr": null
+      "stderr": null,
+      "cookie_changes": {
+        "added": [],
+        "removed": [],
+        "expiry_changed": [],
+        "value_changed": []
+      }
     },
     "gallery-dl.download": {
       "args": [
@@ -55,6 +61,12 @@
       "exit_code": 4,
       "stdout": null,
       "stderr": "gallery-dl.download.stderr.txt",
+      "cookie_changes": {
+        "added": [],
+        "removed": [],
+        "expiry_changed": [],
+        "value_changed": []
+      },
       "writes": []
     },
     "yt-dlp.download": {
@@ -70,6 +82,18 @@
       "exit_code": 1,
       "stdout": "yt-dlp.download.stdout.txt",
       "stderr": "yt-dlp.download.stderr.txt",
+      "cookie_changes": {
+        "added": [
+          "csrftoken",
+          "rur"
+        ],
+        "removed": [
+          "ig_pr",
+          "ig_vw"
+        ],
+        "expiry_changed": [],
+        "value_changed": []
+      },
       "writes": []
     }
   }

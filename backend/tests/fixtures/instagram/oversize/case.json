@@ -1,0 +1,61 @@
+{
+  "case": "oversize",
+  "note": "A public single-photo post downloaded with --filesize-max 100k. The photo is larger, so gallery-dl skips it, writes only info.json and exits 0.",
+  "tools": {
+    "gallery-dl": "1.32.18",
+    "yt-dlp": "2026.10.26"
+  },
+  "input_url": "https://www.instagram.com/p/Dsynth00001/",
+  "runs": {
+    "gallery-dl.download": {
+      "args": [
+        "--cookies",
+        "<cookies>",
+        "-D",
+        "<dir>",
+        "-f",
+        "{num:>02}.{extension}",
+        "--write-info-json",
+        "--write-metadata",
+        "-o",
+        "videos=merged",
+        "-o",
+        "previews=video",
+        "-o",
+        "sleep-429=0",
+        "-o",
+        "max-posts=1",
+        "--filesize-max",
+        "100k",
+        "--",
+        "<url>"
+      ],
+      "url": "https://www.instagram.com/p/Dsynth00001/",
+      "exit_code": 0,
+      "stdout": "gallery-dl.download.stdout.txt",
+      "stderr": "gallery-dl.download.stderr.txt",
+      "cookie_changes": {
+        "added": [
+          "csrftoken",
+          "rur"
+        ],
+        "removed": [
+          "ig_pr",
+          "ig_vw",
+          "wd"
+        ],
+        "expiry_changed": [
+          "ds_user_id"
+        ],
+        "value_changed": []
+      },
+      "writes": [
+        {
+          "name": "info.json",
+          "kind": "json",
+          "source": "files/info.json"
+        }
+      ]
+    }
+  }
+}
