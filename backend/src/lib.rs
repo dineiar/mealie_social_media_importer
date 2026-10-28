@@ -3,6 +3,7 @@ pub mod error;
 pub mod process;
 mod routes;
 pub mod tools;
+pub mod transcribe;
 
 use std::sync::Arc;
 
