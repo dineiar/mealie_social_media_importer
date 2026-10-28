@@ -78,7 +78,7 @@ design/              approved mockups
 
 ## Backend API
 
-All endpoints live under `/api`. Every endpoint needs `Authorization: Bearer <Mealie API key>`, except `health`, `config` and signed file downloads. Errors come back with the matching status code and `{"error": {"kind": "...", "message": "..."}}`. The shape holds for errors raised by the router and middleware too: an unknown path returns 404 `not_found`, a wrong method 405 `method_not_allowed`, a body over 64 KiB 413 `payload_too_large`, and a response that doesn't start within 660 s 504 `timeout`. A missing key, an `Authorization` header with any scheme other than `Bearer`, or a key Mealie answers 401 or 403, returns 401 `unauthorized`. A file link with a bad or expired signature returns 403 `forbidden`. A Mealie that can't be reached, or answers a self-lookup with a status or body the importer doesn't expect, returns 502 `mealie_unreachable`. `message` is a fixed English string, never the text of an underlying error.
+All endpoints live under `/api`. Every endpoint needs `Authorization: Bearer <Mealie API key>`, except `health`, `config` and signed file downloads. Errors come back with the matching status code and `{"error": {"kind": "...", "message": "..."}}`. The shape holds for errors raised by the router and middleware too: an unknown path returns 404 `not_found`, a wrong method 405 `method_not_allowed`, a body over 64 KiB 413 `payload_too_large`, and a response that doesn't start within 660 s 504 `timeout`. A missing key, an `Authorization` header with any scheme other than `Bearer`, or a key Mealie answers 401 or 403, returns 401 `unauthorized`. A Mealie that can't be reached, or answers a self-lookup with a status or body the importer doesn't expect, returns 502 `mealie_unreachable`. `message` is a fixed English string, never the text of an underlying error.
 
 | Method | Path | Behaviour |
 | --- | --- | --- |
@@ -90,7 +90,7 @@ All endpoints live under `/api`. Every endpoint needs `Authorization: Bearer <Me
 | GET | `/api/imports` | The caller's imports, newest first. An import drops out at its `expires_at` |
 | GET | `/api/imports/{id}` | One import. 404 if it belongs to another user or has expired |
 | POST | `/api/imports/{id}/retry` | Reruns from the first failed step, reusing downloaded files. Uses the key sent with the retry request |
-| GET | `/api/files/{id}/{name}?exp=&sig=` | Streams a file with `Content-Disposition: attachment` and the file's MIME type. No Bearer header, because the signature authorizes it. 403 for a bad or expired signature, 404 for an unknown file or a `{name}` that isn't a plain file name |
+| GET | `/api/files/{id}/{name}?exp=&sig=` | Streams a file with `Content-Disposition: attachment` and the file's MIME type. No Bearer header, because the signature authorizes it. 403 `forbidden` for a bad or expired signature, 404 `not_found` for an unknown file or a `{name}` that isn't a plain file name |
 
 `language` is a BCP 47 tag such as `pt-BR`. The frontend always sends `navigator.language`. When the body has none, the backend uses the first tag of `Accept-Language`. When there is neither, the recipe keeps the post's language. The language is stored on the import, so a retry reuses it.
 
