@@ -1,3 +1,4 @@
+use std::env;
 use std::ffi::OsStr;
 use std::fmt;
 use std::io;
@@ -17,6 +18,65 @@ pub const OUTPUT_CAP: usize = 1024 * 1024;
 /// the child left behind can hold a pipe open forever. It is killed when it still holds one
 /// after this long.
 const DRAIN_GRACE: Duration = Duration::from_secs(2);
+
+/// The only variables a child inherits, each with the reason it is kept. Everything else the
+/// backend holds, `TRANSCRIPTION_API_KEY` among it, stays out of reach of the tools.
+const CHILD_ENV: [(&str, &str); 18] = [
+    ("PATH", "yt-dlp finds ffmpeg and ffprobe through it"),
+    (
+        "HOME",
+        "gallery-dl and yt-dlp look for their config and cache under it",
+    ),
+    ("LANG", "text encoding of file names and tool output"),
+    ("LC_ALL", "overrides LANG when the operator sets it"),
+    (
+        "LC_CTYPE",
+        "character classes and encoding when LANG is unset",
+    ),
+    ("TZ", "time zone of dates in file names and metadata"),
+    ("TMPDIR", "where ffmpeg and yt-dlp write scratch files"),
+    (
+        "HTTP_PROXY",
+        "downloads go through the proxy the operator configured",
+    ),
+    (
+        "HTTPS_PROXY",
+        "downloads go through the proxy the operator configured",
+    ),
+    (
+        "ALL_PROXY",
+        "downloads go through the proxy the operator configured",
+    ),
+    ("NO_PROXY", "hosts the operator excluded from the proxy"),
+    (
+        "http_proxy",
+        "the lowercase spelling that Python's requests reads",
+    ),
+    (
+        "https_proxy",
+        "the lowercase spelling that Python's requests reads",
+    ),
+    (
+        "all_proxy",
+        "the lowercase spelling that Python's requests reads",
+    ),
+    (
+        "no_proxy",
+        "the lowercase spelling that Python's requests reads",
+    ),
+    (
+        "SSL_CERT_FILE",
+        "CA bundle the operator trusts for HTTPS downloads",
+    ),
+    (
+        "SSL_CERT_DIR",
+        "CA directory the operator trusts for HTTPS downloads",
+    ),
+    (
+        "REQUESTS_CA_BUNDLE",
+        "CA bundle that Python's requests reads",
+    ),
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Exit {
@@ -92,6 +152,12 @@ where
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
+        .env_clear()
+        .envs(
+            CHILD_ENV
+                .iter()
+                .filter_map(|(name, _)| env::var_os(name).map(|value| (name, value))),
+        )
         .kill_on_drop(true)
         .process_group(0);
     if let Some(cwd) = cwd {
