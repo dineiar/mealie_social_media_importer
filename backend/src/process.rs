@@ -11,6 +11,8 @@ use rustix::process::{Pid, Signal, kill_process_group};
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::process::{Child, ChildStderr, ChildStdout, Command};
 
+use crate::tools::ToolHandle;
+
 /// Each of stdout and stderr keeps this many bytes. The rest is read and dropped.
 pub const OUTPUT_CAP: usize = 1024 * 1024;
 
@@ -99,11 +101,23 @@ pub struct RunError {
     source: io::Error,
 }
 
-/// Runs `program` with `args` as its argument vector, never through a shell, and waits for
-/// it for at most `timeout`. On a timeout, or when the returned future is dropped, the child
-/// and everything it started are killed.
+/// Runs `tool` with `args` as its argument vector, never through a shell, and waits for it for
+/// at most `timeout`. On a timeout, or when the returned future is dropped, the child and
+/// everything it started are killed.
+///
+/// A path is not a tool, so a caller cannot name a program of its own:
+///
+/// ```compile_fail,E0308
+/// use std::path::Path;
+/// use std::time::Duration;
+/// use mealie_importer::process::run;
+///
+/// async fn run_any_program() {
+///     let _ = run(Path::new("/usr/bin/id"), ["-u"], None, Duration::from_secs(1)).await;
+/// }
+/// ```
 pub async fn run<I, S>(
-    program: &Path,
+    tool: &ToolHandle,
     args: I,
     cwd: Option<&Path>,
     timeout: Duration,
@@ -116,7 +130,7 @@ where
         clippy::disallowed_methods,
         reason = "the one place a process is spawned"
     )]
-    let mut command = Command::new(program);
+    let mut command = Command::new(tool.path());
     command
         .args(args)
         .stdin(Stdio::null())
@@ -136,7 +150,7 @@ where
     supervise(command, timeout)
         .await
         .map_err(|source| RunError {
-            program: program.to_owned(),
+            program: tool.path().to_owned(),
             source,
         })
 }

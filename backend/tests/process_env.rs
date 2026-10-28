@@ -1,9 +1,11 @@
 use std::collections::BTreeMap;
 use std::env;
-use std::path::Path;
 use std::time::Duration;
 
 use mealie_importer::process::run;
+
+#[path = "common/stub.rs"]
+mod stub_tool;
 
 #[tokio::test]
 async fn the_child_gets_only_the_variables_it_needs() {
@@ -15,9 +17,8 @@ async fn the_child_gets_only_the_variables_it_needs() {
         env::set_var("HTTPS_PROXY", "http://proxy.invalid:3128");
     }
     let parent_path = env::var("PATH").expect("cargo runs tests with a PATH");
-    let stub = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/stub.sh");
 
-    let out = run(&stub, ["env"], None, Duration::from_secs(60))
+    let out = run(&stub_tool::stub(), ["env"], None, Duration::from_secs(60))
         .await
         .unwrap();
 
