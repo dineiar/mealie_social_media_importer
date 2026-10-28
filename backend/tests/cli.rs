@@ -3,8 +3,14 @@ use std::process::{Child, Command, ExitStatus, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use rustix::process::{Pid, Signal, kill_process};
+
 const BIN: &str = env!("CARGO_BIN_EXE_mealie-importer");
 
+#[allow(
+    clippy::disallowed_methods,
+    reason = "this runs the server binary, not an external tool"
+)]
 fn command(vars: &[(&str, &str)], args: &[&str]) -> Command {
     let mut command = Command::new(BIN);
     command.env_clear().envs(vars.iter().copied()).args(args);
@@ -99,11 +105,7 @@ fn healthcheck_follows_the_server_from_start_to_sigterm() {
         healthcheck().success().then_some(())
     });
 
-    let kill = Command::new("kill")
-        .args(["-TERM", &server.0.id().to_string()])
-        .status()
-        .unwrap();
-    assert!(kill.success());
+    kill_process(Pid::from_child(&server.0), Signal::TERM).unwrap();
     let exit = wait_for("server ignored SIGTERM", || server.0.try_wait().unwrap());
     assert!(exit.success(), "SIGTERM stops cleanly, got {exit}");
 

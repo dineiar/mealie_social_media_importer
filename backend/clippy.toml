@@ -1,0 +1,4 @@
+disallowed-methods = [
+    { path = "std::process::Command::new", reason = "spawn external tools through process::run so every run gets a timeout, a capped capture and no shell" },
+    { path = "tokio::process::Command::new", reason = "spawn external tools through process::run so every run gets a timeout, a capped capture and no shell" },
+]

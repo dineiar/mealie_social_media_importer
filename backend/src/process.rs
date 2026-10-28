@@ -1,0 +1,221 @@
+use std::ffi::OsStr;
+use std::fmt;
+use std::io;
+use std::os::unix::process::ExitStatusExt;
+use std::path::{Path, PathBuf};
+use std::process::{ExitStatus, Stdio};
+use std::time::Duration;
+
+use rustix::process::{Pid, Signal, kill_process_group};
+use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::process::{Child, ChildStderr, ChildStdout, Command};
+
+/// Each of stdout and stderr keeps this many bytes. The rest is read and dropped.
+pub const OUTPUT_CAP: usize = 1024 * 1024;
+
+/// How long to keep reading the pipes once the child has exited or been killed. A process
+/// the child left behind can hold a pipe open forever. It is killed when it still holds one
+/// after this long.
+const DRAIN_GRACE: Duration = Duration::from_secs(2);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Exit {
+    Code(i32),
+    Signal(i32),
+    TimedOut,
+}
+
+impl Exit {
+    pub fn success(self) -> bool {
+        self == Self::Code(0)
+    }
+
+    fn from_status(status: ExitStatus) -> Self {
+        status
+            .code()
+            .map(Self::Code)
+            .or(status.signal().map(Self::Signal))
+            .expect("a waited-for child either exited or was killed by a signal")
+    }
+}
+
+impl fmt::Display for Exit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Code(code) => write!(f, "exit code {code}"),
+            Self::Signal(signal) => write!(f, "signal {signal}"),
+            Self::TimedOut => f.write_str("timed out"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Captured {
+    pub text: String,
+    pub truncated: bool,
+}
+
+#[derive(Debug)]
+pub struct RunOutput {
+    pub exit: Exit,
+    pub stdout: Captured,
+    pub stderr: Captured,
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("cannot run {}: {source}", program.display())]
+pub struct RunError {
+    program: PathBuf,
+    source: io::Error,
+}
+
+/// Runs `program` with `args` as its argument vector, never through a shell, and waits for
+/// it for at most `timeout`. On a timeout, or when the returned future is dropped, the child
+/// and everything it started are killed.
+pub async fn run<I, S>(
+    program: &Path,
+    args: I,
+    cwd: Option<&Path>,
+    timeout: Duration,
+) -> Result<RunOutput, RunError>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "the one place a process is spawned"
+    )]
+    let mut command = Command::new(program);
+    command
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true)
+        .process_group(0);
+    if let Some(cwd) = cwd {
+        command.current_dir(cwd);
+    }
+    supervise(command, timeout)
+        .await
+        .map_err(|source| RunError {
+            program: program.to_owned(),
+            source,
+        })
+}
+
+async fn supervise(mut command: Command, timeout: Duration) -> io::Result<RunOutput> {
+    let mut child = command.spawn()?;
+    let mut group = GroupKill::of(&child);
+    let mut stdout = Capture::new(child.stdout.take().expect("stdout is piped"));
+    let mut stderr = Capture::new(child.stderr.take().expect("stderr is piped"));
+
+    let waited = tokio::time::timeout(timeout, async {
+        tokio::select! {
+            status = child.wait() => status,
+            read = fill_both(&mut stdout, &mut stderr) => {
+                read?;
+                child.wait().await
+            }
+        }
+    })
+    .await;
+    let exit = match waited {
+        Ok(status) => Exit::from_status(status?),
+        Err(_elapsed) => {
+            group.kill();
+            let _ = tokio::time::timeout(DRAIN_GRACE, child.wait()).await;
+            Exit::TimedOut
+        }
+    };
+    if tokio::time::timeout(DRAIN_GRACE, fill_both(&mut stdout, &mut stderr))
+        .await
+        .is_ok()
+    {
+        group.disarm();
+    }
+    Ok(RunOutput {
+        exit,
+        stdout: stdout.finish(),
+        stderr: stderr.finish(),
+    })
+}
+
+async fn fill_both(
+    stdout: &mut Capture<ChildStdout>,
+    stderr: &mut Capture<ChildStderr>,
+) -> io::Result<()> {
+    tokio::try_join!(stdout.fill(), stderr.fill()).map(|_| ())
+}
+
+struct Capture<R> {
+    pipe: R,
+    bytes: Vec<u8>,
+    truncated: bool,
+}
+
+impl<R: AsyncRead + Unpin> Capture<R> {
+    fn new(pipe: R) -> Self {
+        Self {
+            pipe,
+            bytes: Vec::new(),
+            truncated: false,
+        }
+    }
+
+    async fn fill(&mut self) -> io::Result<()> {
+        let mut chunk = [0u8; 8 * 1024];
+        loop {
+            let read = self.pipe.read(&mut chunk).await?;
+            if read == 0 {
+                return Ok(());
+            }
+            let keep = read.min(OUTPUT_CAP - self.bytes.len());
+            self.bytes.extend_from_slice(&chunk[..keep]);
+            self.truncated |= keep < read;
+        }
+    }
+
+    fn finish(self) -> Captured {
+        let text = String::from_utf8(self.bytes)
+            .unwrap_or_else(|error| String::from_utf8_lossy(error.as_bytes()).into_owned());
+        Captured {
+            text,
+            truncated: self.truncated,
+        }
+    }
+}
+
+/// `kill_on_drop` reaches only the child, and a tool such as yt-dlp starts helpers of its
+/// own. The guard stays armed until both pipes close, which shows that no helper still holds
+/// them. The kernel keeps a group id reserved while any member lives, so a kill after the
+/// child is reaped can only reach that group.
+struct GroupKill(Option<Pid>);
+
+impl GroupKill {
+    fn of(child: &Child) -> Self {
+        Self(
+            child
+                .id()
+                .and_then(|id| i32::try_from(id).ok())
+                .and_then(Pid::from_raw),
+        )
+    }
+
+    fn disarm(&mut self) {
+        self.0 = None;
+    }
+
+    fn kill(&mut self) {
+        if let Some(group) = self.0.take() {
+            let _ = kill_process_group(group, Signal::KILL);
+        }
+    }
+}
+
+impl Drop for GroupKill {
+    fn drop(&mut self) {
+        self.kill();
+    }
+}

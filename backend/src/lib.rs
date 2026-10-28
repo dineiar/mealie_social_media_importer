@@ -3,6 +3,7 @@ pub mod config;
 pub mod error;
 pub mod mealie;
 pub mod platforms;
+pub mod process;
 mod routes;
 pub mod store;
 
