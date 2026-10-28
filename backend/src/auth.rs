@@ -1,6 +1,7 @@
 use std::future::Future;
 use std::path::Path;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -57,24 +58,60 @@ impl KeyDigest {
     }
 }
 
+#[derive(Clone)]
+struct Lookup {
+    user: MealieUser,
+    started: u64,
+}
+
+/// A lookup that started before its key was evicted must not outlive the eviction, or a
+/// revoked key would be cached again by a request that was already in flight. `clock`
+/// orders lookup starts against evictions, and `evictions` remembers when each key was
+/// last evicted for as long as a stale lookup could still land.
 pub struct Authenticator {
     mealie: Arc<dyn MealieApi>,
-    users: Cache<KeyDigest, MealieUser>,
+    users: Cache<KeyDigest, Lookup>,
+    evictions: Cache<KeyDigest, u64>,
+    clock: AtomicU64,
 }
 
 impl Authenticator {
     pub fn new(mealie: Arc<dyn MealieApi>, ttl: Duration) -> Self {
-        let users = Cache::builder()
-            .time_to_live(ttl)
-            .max_capacity(MAX_CACHED_USERS)
-            .build();
-        Self { mealie, users }
+        Self {
+            mealie,
+            users: Cache::builder()
+                .time_to_live(ttl)
+                .max_capacity(MAX_CACHED_USERS)
+                .build(),
+            evictions: Cache::builder()
+                .time_to_live(ttl)
+                .max_capacity(MAX_CACHED_USERS)
+                .build(),
+            clock: AtomicU64::new(0),
+        }
     }
 
     pub async fn user(&self, key: &SecretString) -> Result<MealieUser, Arc<MealieError>> {
-        self.users
-            .try_get_with(KeyDigest::of(key), self.users_self(key))
+        let digest = KeyDigest::of(key);
+        let lookup = self
+            .users
+            .try_get_with(digest.clone(), self.lookup(key))
+            .await?;
+        let evicted_since = self
+            .evictions
+            .get(&digest)
             .await
+            .is_some_and(|at| at > lookup.started);
+        if evicted_since {
+            self.users.invalidate(&digest).await;
+        }
+        Ok(lookup.user)
+    }
+
+    async fn lookup(&self, key: &SecretString) -> Result<Lookup, MealieError> {
+        let started = self.clock.load(Ordering::SeqCst);
+        let user = self.users_self(key).await?;
+        Ok(Lookup { user, started })
     }
 
     async fn evict_if_unauthorized<T>(
@@ -84,7 +121,10 @@ impl Authenticator {
     ) -> Result<T, MealieError> {
         let result = call.await;
         if matches!(result, Err(MealieError::Unauthorized)) {
-            self.users.invalidate(&KeyDigest::of(key)).await;
+            let digest = KeyDigest::of(key);
+            let at = self.clock.fetch_add(1, Ordering::SeqCst) + 1;
+            self.evictions.insert(digest.clone(), at).await;
+            self.users.invalidate(&digest).await;
         }
         result
     }

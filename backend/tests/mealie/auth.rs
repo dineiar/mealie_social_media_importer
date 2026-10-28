@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use mealie_importer::auth::{Authenticator, USER_TTL};
-use mealie_importer::mealie::{MealieError, MealieUser};
+use mealie_importer::mealie::{MealieApi, MealieError, MealieUser};
 use secrecy::SecretString;
 use serde_json::json;
 use wiremock::matchers::{any, header, method, path};
@@ -166,4 +166,31 @@ async fn any_other_failure_leaves_the_cached_user_alone() {
             );
         }
     }
+}
+
+#[tokio::test]
+async fn a_lookup_in_flight_when_the_key_is_evicted_is_not_cached() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/users/self"))
+        .respond_with(users_ok().set_delay(Duration::from_millis(300)))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/groups/self"))
+        .respond_with(ResponseTemplate::new(401))
+        .mount(&server)
+        .await;
+    let auth = authenticator(&server);
+    let key = key();
+
+    let (lookup, revoked) = tokio::join!(auth.user(&key), async {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        auth.groups_self(&key).await
+    });
+
+    assert!(lookup.is_ok(), "the request that was in flight is answered");
+    assert_eq!(kind(&revoked.unwrap_err()), "Unauthorized");
+    auth.user(&key).await.expect("the key is looked up again");
+    assert_eq!(calls_to(&server, "/api/users/self").await, 2);
 }
