@@ -22,7 +22,8 @@ There is no database. State lives in the browser (the API key), in the backend's
 ```
 backend/
   src/
-    main.rs          startup, router, graceful shutdown, `healthcheck` subcommand
+    main.rs          startup, logging, graceful shutdown, `healthcheck` subcommand
+    lib.rs           AppState and `router()`, exported for the integration tests
     config.rs        environment parsing and validation
     error.rs         AppError and its JSON response
     auth.rs          Bearer extractor, cached Mealie user lookup
@@ -229,7 +230,7 @@ Instagram refreshes some cookies on its responses, and gallery-dl and yt-dlp wri
 
 ## Configuration
 
-Only `MEALIE_URL` is required. The backend validates everything at startup and exits with one line per invalid variable.
+Only `MEALIE_URL` is required. A variable set to an empty value counts as unset. The backend validates everything at startup and exits with one line per invalid variable. The `healthcheck` subcommand reads only `BIND_ADDR`.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -267,7 +268,7 @@ The frontend container has one setting, `BACKEND_URL` (default `http://backend:8
 
 - Backend tests never touch the network. The pipeline depends on the `Downloader`, `Transcriber` and `MealieApi` traits and is tested with fakes. The Mealie and speech API clients are tested against wiremock. Downloaders are tested with stub executables that replay recorded fixtures. Live tests are marked `#[ignore]` and run by hand.
 - Frontend tests use Vitest, React Testing Library and MSW, with one test per designed state.
-- CI runs `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`, Biome, `tsc --noEmit`, Vitest, `vite build`, the ts-rs drift check, and Docker builds of both images.
+- CI runs `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, Biome, `tsc --noEmit`, Vitest, `vite build`, the ts-rs drift check, and Docker builds of both images.
 
 ## Deployment
 
