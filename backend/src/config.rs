@@ -55,6 +55,9 @@ impl BaseUrl {
         if url.query().is_some() || url.fragment().is_some() {
             return Err("must not have a query or fragment".to_owned());
         }
+        if !url.username().is_empty() || url.password().is_some() {
+            return Err("must not contain a username or password".to_owned());
+        }
         Ok(Self(url))
     }
 
@@ -462,6 +465,25 @@ mod tests {
                 "LOG_FORMAT",
             ]
         );
+    }
+
+    #[test]
+    fn a_url_with_credentials_is_rejected_without_echoing_them() {
+        for name in ["MEALIE_URL", "MEALIE_PUBLIC_URL", "TRANSCRIPTION_BASE_URL"] {
+            for value in [
+                "http://user:s3cret@mealie:9000",
+                "http://s3cret@mealie:9000",
+            ] {
+                let mut values = vars(&[("MEALIE_URL", "http://mealie:9000")]);
+                values.insert(name.to_owned(), value.to_owned());
+                let errors = Config::from_vars(&values).expect_err("credentials are refused");
+
+                let lines: Vec<String> = errors.iter().map(ToString::to_string).collect();
+                assert_eq!(lines.len(), 1, "{name}");
+                assert!(lines[0].starts_with(name), "{}", lines[0]);
+                assert!(!lines[0].contains("s3cret"), "{}", lines[0]);
+            }
+        }
     }
 
     #[test]
