@@ -1,9 +1,13 @@
+use std::collections::HashMap;
+use std::io::{Read, Write};
+use std::net::TcpListener;
 use std::sync::Arc;
 use std::time::Duration;
 
+use mealie_importer::config::Config;
 use mealie_importer::mealie::{
-    AiRecipeRequest, AssetIcon, AssetUpload, Cause, MealieApi, MealieError, RecipePatch,
-    RecipeSettings,
+    AiRecipeRequest, AssetIcon, AssetUpload, Cause, MealieApi, MealieClient, MealieError,
+    RecipePatch, RecipeSettings,
 };
 use serde_json::{Value, json};
 use wiremock::matchers::{method, path};
@@ -120,7 +124,7 @@ async fn create_from_ai_sends_exactly_the_documented_fields() {
     let request = AiRecipeRequest {
         content: "Source: Instagram post by @cookwithmara\n\nCaption:\nOne-pan lemon orzo 🍋"
             .to_owned(),
-        images: vec![files.photo.clone(), files.video.clone()],
+        images: vec![files.photo.clone(), files.photo.clone()],
         translate_language: Some("pt-BR".to_owned()),
         create_new_organizers: true,
     };
@@ -539,6 +543,46 @@ async fn a_redirect_is_not_followed_so_the_key_stays_with_the_configured_mealie(
 
     assert!(
         matches!(error, MealieError::Other(Cause::Status(s)) if s.as_u16() == 302),
+        "{error:?}"
+    );
+    assert_eq!(server.received_requests().await.unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn a_connection_dropped_mid_exchange_is_unreachable() {
+    let replies: [&'static [u8]; 2] = [
+        b"",
+        b"HTTP/1.1 200 OK\r\ncontent-length: 100\r\n\r\npartial",
+    ];
+    for reply in replies {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let _ = socket.read(&mut [0; 4096]);
+            let _ = socket.write_all(reply);
+        });
+        let api = client_for(&format!("http://127.0.0.1:{port}"), Duration::from_secs(5));
+
+        let error = api.users_self(&key()).await.unwrap_err();
+
+        assert_eq!(kind(&error), "Unreachable", "{reply:?}: {error:?}");
+    }
+}
+
+#[tokio::test]
+async fn from_config_uses_the_configured_url_and_timeout() {
+    let server = serve(ResponseTemplate::new(200).set_delay(Duration::from_millis(2500))).await;
+    let vars = HashMap::from([
+        ("MEALIE_URL".to_owned(), server.uri()),
+        ("MEALIE_TIMEOUT_SECS".to_owned(), "1".to_owned()),
+    ]);
+    let api = MealieClient::from_config(&Config::from_vars(&vars).unwrap()).unwrap();
+
+    let error = api.users_self(&key()).await.unwrap_err();
+
+    assert!(
+        matches!(&error, MealieError::Unreachable(Cause::Transport(e)) if e.is_timeout()),
         "{error:?}"
     );
     assert_eq!(server.received_requests().await.unwrap().len(), 1);

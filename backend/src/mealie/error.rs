@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::io;
 
 use reqwest::StatusCode;
@@ -63,22 +64,30 @@ pub(super) fn classify(failure: Failure) -> MealieError {
             MealieError::Unreachable(Cause::Status(status))
         }
         Failure::Status(status, _) => MealieError::Other(Cause::Status(status)),
-        Failure::Transport(error)
-            if error.is_timeout()
-                || error.is_connect()
-                || error.is_request()
-                || error.is_body() =>
-        {
+        Failure::Transport(error) if lost_contact(&error) => {
             MealieError::Unreachable(Cause::Transport(error))
         }
         Failure::Transport(error) => MealieError::Other(Cause::Transport(error)),
     }
 }
 
+/// Walks the source chain because `Response::json` wraps a body that was cut off in a
+/// decode error, and that is a lost connection, not bad JSON.
+fn lost_contact(error: &reqwest::Error) -> bool {
+    let mut link: Option<&(dyn Error + 'static)> = Some(error);
+    while let Some(current) = link {
+        if let Some(error) = current.downcast_ref::<reqwest::Error>()
+            && (error.is_timeout() || error.is_connect() || error.is_request() || error.is_body())
+        {
+            return true;
+        }
+        link = current.source();
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
-
     use super::*;
 
     #[test]

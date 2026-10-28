@@ -16,7 +16,7 @@ use super::error::{Cause, ERROR_BODY_LIMIT, Failure, MealieError, classify};
 use super::types::{
     AiRecipeRequest, AssetUpload, MealieGroup, MealieUser, Recipe, RecipePatch, RecipeSlug,
 };
-use crate::config::BaseUrl;
+use crate::config::{BaseUrl, Config};
 
 /// A host that drops packets should fail in seconds, not after the 330 s request timeout.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -28,6 +28,10 @@ pub struct MealieClient {
 }
 
 impl MealieClient {
+    pub fn from_config(config: &Config) -> Result<Self, reqwest::Error> {
+        Self::new(config.mealie_url.clone(), config.mealie_timeout)
+    }
+
     /// Redirects are off so the key can only go to the configured Mealie, and a followed
     /// 301 would turn a POST into a GET.
     pub fn new(base: BaseUrl, timeout: Duration) -> Result<Self, reqwest::Error> {
