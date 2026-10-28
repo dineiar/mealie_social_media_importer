@@ -3,6 +3,7 @@ pub mod config;
 pub mod error;
 pub mod mealie;
 mod routes;
+pub mod store;
 
 use std::sync::Arc;
 
