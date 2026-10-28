@@ -62,7 +62,7 @@ design/              approved mockups
 
 ## Backend API
 
-All endpoints live under `/api`. Every endpoint needs `Authorization: Bearer <Mealie API key>`, except `health`, `config` and signed file downloads. Errors come back with the matching status code and `{"error": {"kind": "...", "message": "..."}}`.
+All endpoints live under `/api`. Every endpoint needs `Authorization: Bearer <Mealie API key>`, except `health`, `config` and signed file downloads. Errors come back with the matching status code and `{"error": {"kind": "...", "message": "..."}}`. An unknown path returns 404 with the kind `not_found`.
 
 | Method | Path | Behaviour |
 | --- | --- | --- |
