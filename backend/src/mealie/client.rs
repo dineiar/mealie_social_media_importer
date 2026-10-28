@@ -62,6 +62,14 @@ impl MealieClient {
         if status.is_success() {
             return Ok(response);
         }
+        if status.is_redirection() {
+            tracing::warn!(
+                %method,
+                path,
+                status = status.as_u16(),
+                "mealie answered with a redirect that the client does not follow, check MEALIE_URL"
+            );
+        }
         let body = error_body(response).await;
         Err(classify(Failure::Status(status, body)))
     }

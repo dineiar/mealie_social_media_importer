@@ -14,8 +14,8 @@ use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use crate::support::{
-    Call, Files, PHOTO_LEN, VIDEO_LEN, authorization, bearer, binary, client, client_for, key,
-    kind, multipart, refused_client, serve, slug, the_request,
+    Call, Files, KEY, PHOTO_LEN, VIDEO_LEN, authorization, bearer, binary, capture_logs, client,
+    client_for, key, kind, multipart, refused_client, serve, slug, the_request,
 };
 
 fn user_json() -> Value {
@@ -549,6 +549,33 @@ async fn a_redirect_is_not_followed_so_the_key_stays_with_the_configured_mealie(
         "{error:?}"
     );
     assert_eq!(server.received_requests().await.unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn a_redirect_is_logged_at_warn_with_the_status_and_without_the_query() {
+    let logs = capture_logs();
+    let server = serve(ResponseTemplate::new(301).insert_header(
+        "location",
+        "https://mealie.test/api/recipes/x?token=in-the-query",
+    ))
+    .await;
+
+    client(&server)
+        .get_recipe(&key(), &slug("redirect-warn-probe"))
+        .await
+        .unwrap_err();
+
+    let logged = String::from_utf8(logs.lock().unwrap().clone()).unwrap();
+    let line = logged
+        .lines()
+        .find(|line| line.contains("WARN") && line.contains("redirect-warn-probe"))
+        .unwrap_or_else(|| panic!("no warn line for the redirect:\n{logged}"));
+    assert!(line.contains("status=301"), "{line}");
+    assert!(line.contains("MEALIE_URL"), "{line}");
+    assert!(
+        !line.contains("in-the-query") && !line.contains(KEY),
+        "{line}"
+    );
 }
 
 #[tokio::test]
