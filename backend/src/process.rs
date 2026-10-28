@@ -58,10 +58,8 @@ fn child_env() -> impl Iterator<Item = (&'static str, OsString)> {
         if name != "PATH" {
             return Some((name, value));
         }
-        let absolute: Vec<_> = env::split_paths(&value)
-            .filter(|dir| dir.is_absolute())
-            .collect();
-        let joined = env::join_paths(absolute).ok()?;
+        let joined =
+            env::join_paths(env::split_paths(&value).filter(|dir| dir.is_absolute())).ok()?;
         (!joined.is_empty()).then_some((name, joined))
     })
 }
