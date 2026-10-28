@@ -2,15 +2,18 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-types=../frontend/src/api/types
+types=frontend/src/api/types
 
-rm -rf "$types"
-cargo test --locked --lib export_bindings
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+mkdir "$work/fresh" "$work/committed"
 
-if [ -n "$(git status --porcelain --untracked-files=all -- "$types")" ]; then
-	git status --short --untracked-files=all -- "$types" >&2
-	git diff HEAD -- "$types" >&2
-	echo "frontend/src/api/types differs from a fresh export of the Rust types." >&2
-	echo "It now holds the fresh files. Review and commit them." >&2
+TS_RS_EXPORT_DIR="$work/fresh" cargo test --locked --lib export_bindings
+
+git -C .. archive HEAD -- "$types" | tar -x -C "$work/committed" --strip-components=4
+
+if ! diff -ru "$work/committed" "$work/fresh" >&2; then
+	echo "$types differs from a fresh export of the Rust types." >&2
+	echo "Delete the folder, run 'cargo test --lib export_bindings' in backend/, and commit the result." >&2
 	exit 1
 fi
