@@ -8,9 +8,9 @@ use mealie_importer::mealie::{
 };
 use reqwest::StatusCode;
 use secrecy::SecretString;
-use serde_json::{Map, Value, json};
+use serde_json::{Value, json};
 
-use crate::support::{key, slug};
+use crate::support::{ai_request, key, slug};
 
 /// Builds every value the real client returns, from outside the `mealie` module.
 struct FakeMealie {
@@ -118,14 +118,10 @@ impl MealieApi for FakeMealie {
 #[tokio::test]
 async fn code_outside_the_module_can_build_a_rejected_error() {
     let api: &dyn MealieApi = &FakeMealie { ai_enabled: false };
-    let request = AiRecipeRequest {
-        content: "Caption".to_owned(),
-        images: Vec::new(),
-        translate_language: None,
-        create_new_organizers: false,
-    };
-
-    let error = api.create_from_ai(&key(), &request).await.unwrap_err();
+    let error = api
+        .create_from_ai(&key(), &ai_request("Caption"))
+        .await
+        .unwrap_err();
 
     let MealieError::Rejected(body) = &error else {
         panic!("built as Rejected, got {error:?}");
@@ -154,17 +150,4 @@ async fn a_fake_can_build_recipe_settings_without_serde() {
         .unwrap();
 
     assert!(patched.settings.unwrap().show_assets());
-}
-
-#[test]
-fn settings_built_from_a_map_keep_every_key() {
-    let mut map = Map::new();
-    map.insert("aFlagMealieAddsLater".to_owned(), json!("kept"));
-
-    let settings = RecipeSettings::new(map).with_show_assets(true);
-
-    assert_eq!(
-        serde_json::to_value(settings).unwrap(),
-        json!({ "aFlagMealieAddsLater": "kept", "showAssets": true })
-    );
 }

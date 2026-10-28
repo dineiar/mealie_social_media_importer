@@ -14,8 +14,9 @@ use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use crate::support::{
-    Call, Files, KEY, PHOTO_LEN, VIDEO_LEN, authorization, bearer, binary, capture_logs, client,
-    client_for, key, kind, multipart, refused_client, serve, slug, the_request,
+    Call, Files, KEY, PHOTO_LEN, VIDEO_LEN, ai_request, authorization, bearer, binary,
+    capture_logs, client, client_for, key, kind, multipart, refused_client, serve, slug,
+    the_request,
 };
 
 fn user_json() -> Value {
@@ -107,17 +108,13 @@ async fn groups_self_reads_the_ai_provider_settings() {
 
 #[tokio::test]
 async fn groups_self_without_ai_settings_has_both_flags_off() {
-    for body in [
-        json!({ "slug": "home" }),
-        json!({ "slug": "home", "aiProviderSettings": null }),
-    ] {
-        let server = serve(ResponseTemplate::new(200).set_body_json(body)).await;
+    let body = json!({ "slug": "home", "aiProviderSettings": null });
+    let server = serve(ResponseTemplate::new(200).set_body_json(body)).await;
 
-        let group = client(&server).groups_self(&key()).await.unwrap();
+    let group = client(&server).groups_self(&key()).await.unwrap();
 
-        assert!(!group.ai_provider_settings.ai_enabled);
-        assert!(!group.ai_provider_settings.image_provider_enabled);
-    }
+    assert!(!group.ai_provider_settings.ai_enabled);
+    assert!(!group.ai_provider_settings.image_provider_enabled);
 }
 
 #[tokio::test]
@@ -164,15 +161,8 @@ async fn create_from_ai_sends_exactly_the_documented_fields() {
 #[tokio::test]
 async fn create_from_ai_sends_no_language_or_photo_parts_when_there_are_none() {
     let server = serve(ResponseTemplate::new(201).set_body_json("soup")).await;
-    let request = AiRecipeRequest {
-        content: "Caption: soup".to_owned(),
-        images: vec![],
-        translate_language: None,
-        create_new_organizers: false,
-    };
-
     client(&server)
-        .create_from_ai(&key(), &request)
+        .create_from_ai(&key(), &ai_request("Caption: soup"))
         .await
         .unwrap();
 
@@ -195,19 +185,15 @@ async fn create_from_ai_sends_no_language_or_photo_parts_when_there_are_none() {
 async fn create_from_ai_rejects_a_body_that_is_not_a_usable_slug() {
     for body in [json!(""), json!({ "slug": "soup" }), json!("..")] {
         let server = serve(ResponseTemplate::new(201).set_body_json(&body)).await;
-        let request = AiRecipeRequest {
-            content: "x".to_owned(),
-            images: vec![],
-            translate_language: None,
-            create_new_organizers: true,
-        };
-
         let error = client(&server)
-            .create_from_ai(&key(), &request)
+            .create_from_ai(&key(), &ai_request("x"))
             .await
             .unwrap_err();
 
-        assert!(matches!(error, MealieError::Other(_)), "{body}: {error:?}");
+        assert!(
+            matches!(error, MealieError::Other(Cause::Decode(_))),
+            "{body}: {error:?}"
+        );
     }
 }
 
@@ -619,27 +605,6 @@ async fn a_body_the_client_cannot_read_is_a_decode_cause_not_a_transport_one() {
             "{error:?}"
         );
     }
-}
-
-#[tokio::test]
-async fn a_slug_mealie_returns_that_is_not_usable_is_a_decode_cause() {
-    let server = serve(ResponseTemplate::new(201).set_body_json("..")).await;
-    let request = AiRecipeRequest {
-        content: "Caption".to_owned(),
-        images: Vec::new(),
-        translate_language: None,
-        create_new_organizers: false,
-    };
-
-    let error = client(&server)
-        .create_from_ai(&key(), &request)
-        .await
-        .unwrap_err();
-
-    assert!(
-        matches!(error, MealieError::Other(Cause::Decode(_))),
-        "{error:?}"
-    );
 }
 
 #[tokio::test]

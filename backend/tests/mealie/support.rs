@@ -58,6 +58,15 @@ pub fn slug(value: &str) -> RecipeSlug {
     value.parse().expect("a usable slug")
 }
 
+pub fn ai_request(content: &str) -> AiRecipeRequest {
+    AiRecipeRequest {
+        content: content.to_owned(),
+        images: Vec::new(),
+        translate_language: None,
+        create_new_organizers: false,
+    }
+}
+
 pub fn base_url(url: &str) -> BaseUrl {
     let vars = HashMap::from([("MEALIE_URL".to_owned(), url.to_owned())]);
     Config::from_vars(&vars).expect("a valid URL").mealie_url
@@ -259,10 +268,10 @@ impl Call {
             Call::GroupsSelf => api.groups_self(&key).await.map(drop),
             Call::CreateFromAi => {
                 let request = AiRecipeRequest {
-                    content: "Caption: lemon orzo".to_owned(),
                     images: vec![files.photo.clone()],
                     translate_language: Some("pt-BR".to_owned()),
                     create_new_organizers: true,
+                    ..ai_request("Caption: lemon orzo")
                 };
                 api.create_from_ai(&key, &request).await.map(drop)
             }

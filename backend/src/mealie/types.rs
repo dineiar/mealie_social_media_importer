@@ -65,7 +65,7 @@ pub struct MealieGroup {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase")]
 pub struct AiProviderSettings {
     pub ai_enabled: bool,
     pub image_provider_enabled: bool,
@@ -285,7 +285,6 @@ mod tests {
         for body in [
             json!({ "slug": "home" }),
             json!({ "slug": "home", "aiProviderSettings": null }),
-            json!({ "slug": "home", "aiProviderSettings": {} }),
         ] {
             let group: MealieGroup = serde_json::from_value(body.clone()).unwrap();
 
@@ -294,9 +293,14 @@ mod tests {
                 AiProviderSettings::default(),
                 "{body}"
             );
-            assert!(!group.ai_provider_settings.ai_enabled);
-            assert!(!group.ai_provider_settings.image_provider_enabled);
         }
+    }
+
+    #[test]
+    fn ai_provider_settings_that_are_present_but_malformed_still_fail() {
+        let body = json!({ "slug": "home", "aiProviderSettings": { "aiEnabled": true } });
+
+        assert!(serde_json::from_value::<MealieGroup>(body).is_err());
     }
 
     #[test]
