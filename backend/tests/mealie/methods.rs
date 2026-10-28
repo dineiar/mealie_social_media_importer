@@ -596,8 +596,50 @@ async fn a_connection_dropped_mid_exchange_is_unreachable() {
 
         let error = api.users_self(&key()).await.unwrap_err();
 
-        assert_eq!(kind(&error), "Unreachable", "{reply:?}: {error:?}");
+        assert!(
+            matches!(error, MealieError::Unreachable(Cause::Transport(_))),
+            "{reply:?}: {error:?}"
+        );
     }
+}
+
+#[tokio::test]
+async fn a_body_the_client_cannot_read_is_a_decode_cause_not_a_transport_one() {
+    let bodies = [
+        ResponseTemplate::new(200).set_body_string("<html>a proxy login page</html>"),
+        ResponseTemplate::new(200).set_body_json(json!({ "aiProviderSettings": "oops" })),
+    ];
+    for body in bodies {
+        let server = serve(body).await;
+
+        let error = client(&server).groups_self(&key()).await.unwrap_err();
+
+        assert!(
+            matches!(error, MealieError::Other(Cause::Decode(_))),
+            "{error:?}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_slug_mealie_returns_that_is_not_usable_is_a_decode_cause() {
+    let server = serve(ResponseTemplate::new(201).set_body_json("..")).await;
+    let request = AiRecipeRequest {
+        content: "Caption".to_owned(),
+        images: Vec::new(),
+        translate_language: None,
+        create_new_organizers: false,
+    };
+
+    let error = client(&server)
+        .create_from_ai(&key(), &request)
+        .await
+        .unwrap_err();
+
+    assert!(
+        matches!(error, MealieError::Other(Cause::Decode(_))),
+        "{error:?}"
+    );
 }
 
 #[tokio::test]

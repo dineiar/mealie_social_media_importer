@@ -26,8 +26,14 @@ pub enum MealieError {
 pub enum Cause {
     #[error("HTTP status {0}")]
     Status(StatusCode),
+    /// The exchange itself failed: a timeout, a refused or dropped connection, or a
+    /// request reqwest could not build.
     #[error(transparent)]
     Transport(reqwest::Error),
+    /// Mealie answered 2xx with a body the client could not read: not JSON, a missing
+    /// field, or a slug that is not usable.
+    #[error(transparent)]
+    Decode(reqwest::Error),
     #[error(transparent)]
     File(io::Error),
 }
@@ -67,6 +73,7 @@ pub(super) fn classify(failure: Failure) -> MealieError {
         Failure::Transport(error) if lost_contact(&error) => {
             MealieError::Unreachable(Cause::Transport(error))
         }
+        Failure::Transport(error) if error.is_decode() => MealieError::Other(Cause::Decode(error)),
         Failure::Transport(error) => MealieError::Other(Cause::Transport(error)),
     }
 }
