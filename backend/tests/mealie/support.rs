@@ -11,6 +11,7 @@ use mealie_importer::mealie::{
     RecipeSlug,
 };
 use secrecy::SecretString;
+use serde_json::{Value, json};
 use tempfile::TempDir;
 use wiremock::matchers::any;
 use wiremock::{Mock, MockServer, Request, ResponseTemplate};
@@ -87,6 +88,37 @@ pub fn refused_client() -> MealieClient {
         .unwrap()
         .port();
     client_for(&format!("http://127.0.0.1:{port}"), Duration::from_secs(10))
+}
+
+pub fn user_json() -> Value {
+    json!({
+        "id": "eaab0b0e-0df9-402c-8f5c-90cced537b01",
+        "username": "admin",
+        "fullName": "Change Me",
+        "email": "changeme@example.com",
+        "authMethod": "Mealie",
+        "admin": true,
+        "group": "Home",
+        "household": "Family",
+        "groupId": "6b1a1bee-d945-4637-91b4-9ba84955a398",
+        "groupSlug": "home",
+        "householdSlug": "family",
+        "tokens": [{ "name": "importer", "id": 1 }],
+    })
+}
+
+pub fn group_json(ai_enabled: bool, image_enabled: bool) -> Value {
+    json!({
+        "name": "Home",
+        "slug": "home",
+        "aiProviderSettings": {
+            "defaultProviderId": null,
+            "providers": [],
+            "aiEnabled": ai_enabled,
+            "audioProviderEnabled": false,
+            "imageProviderEnabled": image_enabled,
+        },
+    })
 }
 
 pub fn kind(error: &MealieError) -> &'static str {

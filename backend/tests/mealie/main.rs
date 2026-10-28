@@ -1,3 +1,4 @@
+mod auth;
 mod fakes;
 mod key_safety;
 mod live;

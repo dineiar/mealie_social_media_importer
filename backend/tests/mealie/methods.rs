@@ -15,40 +15,9 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use crate::support::{
     Call, Files, KEY, PHOTO_LEN, VIDEO_LEN, ai_request, authorization, bearer, binary,
-    capture_logs, client, client_for, key, kind, multipart, refused_client, serve, slug,
-    the_request,
+    capture_logs, client, client_for, group_json, key, kind, multipart, refused_client, serve,
+    slug, the_request, user_json,
 };
-
-fn user_json() -> Value {
-    json!({
-        "id": "eaab0b0e-0df9-402c-8f5c-90cced537b01",
-        "username": "admin",
-        "fullName": "Change Me",
-        "email": "changeme@example.com",
-        "authMethod": "Mealie",
-        "admin": true,
-        "group": "Home",
-        "household": "Family",
-        "groupId": "6b1a1bee-d945-4637-91b4-9ba84955a398",
-        "groupSlug": "home",
-        "householdSlug": "family",
-        "tokens": [{ "name": "importer", "id": 1 }],
-    })
-}
-
-fn group_json(ai_enabled: bool, image_enabled: bool) -> Value {
-    json!({
-        "name": "Home",
-        "slug": "home",
-        "aiProviderSettings": {
-            "defaultProviderId": null,
-            "providers": [],
-            "aiEnabled": ai_enabled,
-            "audioProviderEnabled": false,
-            "imageProviderEnabled": image_enabled,
-        },
-    })
-}
 
 fn recipe_json() -> Value {
     json!({
