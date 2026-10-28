@@ -1,3 +1,4 @@
+import { act } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import type { Me } from "../api/types/Me";
 import { type ApiKey, parseApiKey } from "../auth/apiKey";
@@ -70,4 +71,8 @@ export function storedValues(): { local: string[]; tab: string[] } {
     local: Object.values(localStorage),
     tab: Object.values(sessionStorage),
   };
+}
+
+export async function flushEffects() {
+  await act(async () => {});
 }

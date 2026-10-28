@@ -7,6 +7,7 @@ import { App } from "./App";
 import { createQueryClient } from "./api/queryClient";
 import {
   aMe,
+  flushEffects,
   holdMeAnswer,
   KEY_TEXT,
   mealieUnreachableResponse,
@@ -149,6 +150,7 @@ describe("where the key is kept", () => {
     await connectWith(KEY_TEXT);
 
     await screen.findByText("Ana Souza");
+    await flushEffects();
     expect(storedValues()).toEqual({ local: [KEY_TEXT], tab: [] });
   });
 
@@ -160,6 +162,7 @@ describe("where the key is kept", () => {
     await connectWith(KEY_TEXT);
 
     await screen.findByText("Ana Souza");
+    await flushEffects();
     expect(storedValues()).toEqual({ local: [], tab: [KEY_TEXT] });
   });
 
@@ -197,6 +200,7 @@ describe("where the key is kept", () => {
       "Mealie didn't accept this key.",
     );
     expect(keyField()).toHaveValue(KEY_TEXT);
+    await flushEffects();
     expect(storedValues()).toEqual({ local: [], tab: [] });
   });
 });
@@ -253,6 +257,7 @@ describe("the banners", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Mealie can't be reached");
     expect(screen.getByRole("button", { name: "Log off" })).toBeInTheDocument();
+    await flushEffects();
     expect(storedValues().local).toEqual([KEY_TEXT]);
   });
 
@@ -267,6 +272,7 @@ describe("the banners", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "The importer isn't responding",
     );
+    await flushEffects();
     expect(storedValues().local).toEqual([KEY_TEXT]);
   });
 

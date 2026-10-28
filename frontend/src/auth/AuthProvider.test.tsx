@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { createQueryClient } from "../api/queryClient";
 import {
   aMe,
+  flushEffects,
   holdMeAnswer,
   KEY,
   KEY_TEXT,
@@ -79,6 +80,7 @@ describe("AuthProvider", () => {
     );
 
     expect(await screen.findByText("rejected")).toBeInTheDocument();
+    await flushEffects();
     expect(storedValues()).toEqual({ local: [], tab: [] });
   });
 
@@ -103,6 +105,7 @@ describe("AuthProvider", () => {
     renderProvider();
 
     expect(await screen.findByText("rejected")).toBeInTheDocument();
+    await flushEffects();
     expect(storedValues()).toEqual({ local: [], tab: [] });
   });
 
@@ -116,6 +119,7 @@ describe("AuthProvider", () => {
       await screen.findByText("unreachable by mealie"),
     ).toBeInTheDocument();
     expect(authorizations).toHaveLength(1);
+    await flushEffects();
     expect(storedValues()).toEqual({ local: [KEY_TEXT], tab: [] });
   });
 
@@ -141,6 +145,7 @@ describe("AuthProvider", () => {
         await screen.findByText("unreachable by backend"),
       ).toBeInTheDocument();
       expect(authorizations).toHaveLength(1);
+      await flushEffects();
       expect(storedValues()).toEqual({ local: [], tab: [KEY_TEXT] });
     },
   );
@@ -171,6 +176,7 @@ describe("AuthProvider", () => {
     );
     await screen.findByText("logged_in");
     queryClient.setQueryData(["imports"], [{ id: "earlier-import" }]);
+    await flushEffects();
     expect(storedValues().local).toEqual([KEY_TEXT]);
 
     await userEvent.click(screen.getByRole("button", { name: "Log off" }));
