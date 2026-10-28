@@ -1,5 +1,6 @@
 pub mod config;
 pub mod error;
+pub mod mealie;
 mod routes;
 
 use std::sync::Arc;
