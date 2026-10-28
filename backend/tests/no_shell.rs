@@ -3,6 +3,29 @@ use std::path::{Path, PathBuf};
 
 const SHELLS: [&str; 6] = ["sh", "bash", "zsh", "dash", "/bin/sh", "/bin/bash"];
 
+/// Lint groups and names that switch off `clippy::disallowed_methods` without naming it.
+const LIFTING_LINTS: [&str; 4] = [
+    "clippy::all",
+    "clippy::style",
+    "clippy::disallowed_methods",
+    "warnings",
+];
+
+fn lint_attributes(text: &str) -> Vec<String> {
+    let squeezed: String = text.chars().filter(|c| !c.is_whitespace()).collect();
+    squeezed
+        .split("#[")
+        .skip(1)
+        .chain(squeezed.split("#![").skip(1))
+        .map(|rest| rest.split(']').next().unwrap_or(rest).to_owned())
+        .filter(|attribute| {
+            ["allow(", "expect(", "warn("]
+                .iter()
+                .any(|key| attribute.contains(key))
+        })
+        .collect()
+}
+
 fn sources(dir: &Path) -> Vec<(PathBuf, String)> {
     fs::read_dir(dir)
         .unwrap()
@@ -52,6 +75,23 @@ fn no_source_names_a_shell() {
                 !text.contains(&format!("\"{shell} -c")),
                 "{path:?} runs {shell} -c"
             );
+        }
+    }
+}
+
+#[test]
+fn no_source_but_process_rs_allows_a_lint_group_that_includes_the_ban() {
+    for (path, text) in all_sources() {
+        if path.ends_with("process.rs") {
+            continue;
+        }
+        for attribute in lint_attributes(&text) {
+            for lint in LIFTING_LINTS {
+                assert!(
+                    !attribute.contains(lint),
+                    "{path:?} has #[{attribute}], which lifts the ban on spawning"
+                );
+            }
         }
     }
 }

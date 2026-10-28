@@ -4,15 +4,19 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use mealie_importer::process::{Exit, OUTPUT_CAP, run};
+use mealie_importer::tools::{Tool, ToolSet};
 use rustix::process::{Pid, test_kill_process};
 use tempfile::tempdir;
 use tokio::task::JoinSet;
 
-const LONG: Duration = Duration::from_secs(60);
+mod common;
+#[path = "common/stub.rs"]
+mod stub_tool;
 
-fn stub() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/stub.sh")
-}
+use common::install;
+use stub_tool::stub;
+
+const LONG: Duration = Duration::from_secs(60);
 
 fn is_running(pid: i32) -> bool {
     test_kill_process(Pid::from_raw(pid).unwrap()).is_ok()
@@ -214,9 +218,14 @@ async fn a_helper_left_running_after_the_child_exits_is_killed() {
 
 #[tokio::test]
 async fn a_program_that_cannot_start_is_an_error_naming_it() {
-    let missing = Path::new("/nonexistent/tool");
+    let bin = tempdir().unwrap();
+    let path = install(bin.path(), "ffmpeg", "#!/bin/sh\n");
+    let tools = ToolSet::discover(bin.path(), Some(bin.path().as_os_str()));
+    fs::remove_file(&path).unwrap();
 
-    let error = run(missing, ["--version"], None, LONG).await.unwrap_err();
+    let error = run(tools.get(Tool::Ffmpeg).unwrap(), ["-version"], None, LONG)
+        .await
+        .unwrap_err();
 
-    assert!(error.to_string().contains("/nonexistent/tool"), "{error}");
+    assert!(error.to_string().contains("ffmpeg"), "{error}");
 }

@@ -47,20 +47,30 @@ impl fmt::Display for Tool {
     }
 }
 
+/// The one thing `process::run` accepts. Only `ToolSet::discover` creates one, so a program
+/// that discovery did not find under a tool's name cannot be run.
+///
+/// ```compile_fail,E0451
+/// use mealie_importer::tools::ToolHandle;
+/// let _ = ToolHandle(std::path::PathBuf::from("/usr/bin/id"));
+/// ```
+#[derive(Debug, Clone)]
+pub struct ToolHandle(PathBuf);
+
+impl ToolHandle {
+    pub fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
 /// Where each tool was found. A tool with no entry is missing, and whatever depends on it
 /// reports itself as not configured.
 #[derive(Debug)]
 pub struct ToolSet {
-    found: BTreeMap<Tool, PathBuf>,
+    found: BTreeMap<Tool, ToolHandle>,
 }
 
 impl ToolSet {
-    pub fn from_paths(found: impl IntoIterator<Item = (Tool, PathBuf)>) -> Self {
-        Self {
-            found: found.into_iter().collect(),
-        }
-    }
-
     /// Looks in the virtualenv at `<data_dir>/tools/bin` first, then in each directory of
     /// `path_var`. A relative directory is skipped.
     pub fn discover(data_dir: &Path, path_var: Option<&OsStr>) -> Self {
@@ -71,30 +81,40 @@ impl ToolSet {
             .filter(|dir| dir.is_absolute());
         let dirs: Vec<PathBuf> = venv_bin.into_iter().chain(path_dirs).collect();
 
-        Self::from_paths(Tool::ALL.into_iter().filter_map(|tool| {
-            dirs.iter()
-                .map(|dir| dir.join(tool.executable()))
-                .find(|candidate| is_executable(candidate))
-                .map(|path| (tool, path))
-        }))
+        let found = Tool::ALL
+            .into_iter()
+            .filter_map(|tool| {
+                dirs.iter()
+                    .map(|dir| dir.join(tool.executable()))
+                    .find(|candidate| is_executable(candidate))
+                    .map(|path| (tool, ToolHandle(path)))
+            })
+            .collect();
+        Self { found }
+    }
+
+    pub fn get(&self, tool: Tool) -> Option<&ToolHandle> {
+        self.found.get(&tool)
     }
 
     pub fn path(&self, tool: Tool) -> Option<&Path> {
-        self.found.get(&tool).map(PathBuf::as_path)
+        self.get(tool).map(ToolHandle::path)
     }
 
     /// A version check that outlasts `timeout` is killed.
     pub async fn log_versions(&self, timeout: Duration) {
         for tool in Tool::ALL {
-            let Some(path) = self.path(tool) else {
+            let Some(handle) = self.get(tool) else {
                 tracing::warn!(%tool, "tool not found in the tools virtualenv or on PATH");
                 continue;
             };
-            match version(tool, path, timeout).await {
-                Ok(version) => tracing::info!(%tool, path = %path.display(), version, "tool found"),
+            match version(tool, handle, timeout).await {
+                Ok(version) => {
+                    tracing::info!(%tool, path = %handle.path().display(), version, "tool found");
+                }
                 Err(problem) => tracing::warn!(
                     %tool,
-                    path = %path.display(),
+                    path = %handle.path().display(),
                     %problem,
                     "tool found, but its version is unknown"
                 ),
@@ -117,8 +137,12 @@ enum VersionError {
     Silent,
 }
 
-async fn version(tool: Tool, path: &Path, timeout: Duration) -> Result<String, VersionError> {
-    let output = run(path, [tool.version_flag()], None, timeout).await?;
+async fn version(
+    tool: Tool,
+    handle: &ToolHandle,
+    timeout: Duration,
+) -> Result<String, VersionError> {
+    let output = run(handle, [tool.version_flag()], None, timeout).await?;
     if !output.exit.success() {
         return Err(VersionError::Exit(output.exit));
     }
