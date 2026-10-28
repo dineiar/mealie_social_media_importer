@@ -22,6 +22,7 @@ use crate::error::AppError;
 
 const BODY_LIMIT_BYTES: usize = 64 * 1024;
 
+/// Above the 600 s `?wait=true` cap, and equal to nginx's `proxy_read_timeout` on `/api`.
 /// `TimeoutLayer` bounds only the time to the response head, so a streamed body is never cut.
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(660);
 
