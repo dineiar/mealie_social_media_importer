@@ -85,8 +85,8 @@ All endpoints live under `/api`. Every endpoint needs `Authorization: Bearer <Me
 | GET | `/api/health` | 200 `{"status":"ok"}`. Used by the Docker healthcheck |
 | GET | `/api/config` | `{"mealie_public_url", "retention_minutes", "version"}` |
 | GET | `/api/me` | `{"id", "username", "full_name", "group_slug", "ai": {"enabled", "image_enabled"}}`. `username` and `full_name` are null when Mealie has none. The user comes from the 5-minute cache, `ai` from a fresh `GET /api/groups/self`. 401 when the key is missing or Mealie rejects it, 502 when Mealie can't be reached |
-| GET | `/api/platforms` | `[{"id":"instagram", "name":"Instagram", "status":"ready" \| "not_configured", "hint"}]` |
-| POST | `/api/imports` | Body `{"url": string, "language"?: string}`. 202 with the new import record. 400 for an unsupported host or a platform that isn't set up. If the same URL is already queued or running for this user, 200 with that record. `?wait=true` holds the response until the import finishes, capped at 10 minutes |
+| GET | `/api/platforms` | `[{"id":"instagram", "name":"Instagram", "status":"ready" \| "not_configured", "hint"}]`. `hint` is null when `ready`, otherwise one of the keys under [Cookie store](#cookie-store). Each request reads the platform's state afresh, so a cookies file that appears later turns it `ready` without a restart |
+| POST | `/api/imports` | Body `{"url": string, "language"?: string}`. 202 with the new import record. 400 for an unsupported host, a link that isn't one post, or a platform that isn't set up. If the same URL is already queued or running for this user, 200 with that record. `?wait=true` holds the response until the import finishes, capped at 10 minutes |
 | GET | `/api/imports` | The caller's imports, newest first. An import drops out at its `expires_at` |
 | GET | `/api/imports/{id}` | One import. 404 if it belongs to another user or has expired |
 | POST | `/api/imports/{id}/retry` | Reruns from the first failed step, reusing downloaded files. Uses the key sent with the retry request |
@@ -239,14 +239,26 @@ Instagram refreshes some cookies on its responses, and gallery-dl and yt-dlp wri
 - The working copy is `/data/cookies/instagram.txt`, with `/data/cookies/instagram.source` holding the SHA-256 of the original it was seeded from.
 - Seed: at startup and before each job, if the working copy is missing, or the original's hash differs from `instagram.source`, copy the original over the working copy and record its hash. Replacing the original therefore always wins.
 - Check out: each job copies the working copy into its import directory and passes that copy to the tool.
-- Check in: after a successful run, the job's copy replaces the working copy (write to a temporary file, then rename) under a per-platform mutex. A failed run checks nothing in.
-- Status: no original file means `not_configured`, whatever the working copy holds. Otherwise the platform is `ready` when the working copy parses and has a non-empty `sessionid` for `.instagram.com`.
+- Check in: after a successful run, the job's copy replaces the working copy (write to a temporary file, then rename) under a per-platform mutex. A failed run checks nothing in. Every file the store writes ends at mode 0600, because gallery-dl rewrites its file through `<file>.tmp` at mode 0644.
+- Two more check-ins are dropped. One is a copy checked out before the original was replaced, so replacing the original wins even over a job that was already running. The other is a copy without a session, so a run that logged the session out never overwrites a working one.
+- Status: no original file means `not_configured`, whatever the working copy holds. Otherwise the platform is `ready` when the working copy parses and has a non-empty `sessionid` for `.instagram.com`. Each status check seeds first, so a file mounted or replaced later takes effect without a restart.
+- Parsing follows gallery-dl. `#HttpOnly_` lines are cookies, other `#` lines and blank lines are skipped, every other line has seven tab-separated fields, and the domain must be exactly `.instagram.com`. Expiry isn't checked.
+
+When a platform isn't `ready`, `GET /api/platforms` sends one of these `hint` keys, and the frontend words it.
+
+| `hint` | Cause |
+| --- | --- |
+| `cookies_missing` | No file at `INSTAGRAM_COOKIES_FILE` |
+| `cookies_unavailable` | The backend couldn't read the original or write the working copy. The log names the path and the error |
+| `cookies_invalid` | The file isn't a Netscape `cookies.txt` |
+| `cookies_no_session` | The file parses but has no `sessionid` for `.instagram.com` |
 
 ## Instagram
 
 - The downloader is gallery-dl, confirmed by the spike (T03, recorded in `docs/decisions/`). It handles photos, carousels, reels and `/share/` links with plain HTTP.
-- Accepted hosts: `instagram.com`, `www.instagram.com`, `instagr.am`. Accepted paths: `/p/<code>`, `/reel/<code>`, `/reels/<code>`, `/tv/<code>`, `/share/…`.
-- The canonical URL drops tracking parameters (`igsh`, `utm_*`) and becomes the recipe's `orgURL`.
+- Accepted hosts: `instagram.com`, `www.instagram.com`, `instagr.am`, over http or https, with no userinfo and no port other than the scheme's default. Accepted paths: `/p/<code>`, `/reel/<code>`, `/reels/<code>`, `/tv/<code>`, `/share/<token>` and `/share/{p,tv,reel,reels}/<token>`. A path needs its code or token, because gallery-dl reads a bare `/reels/` as a profile. A code or token is letters, digits, `-` and `_`.
+- The importer rebuilds the link as `https://www.instagram.com/<kind>/<code>/`. The query string and fragment are dropped, which covers `igsh` and `utm_*`. `instagr.am` becomes `www.instagram.com`, because gallery-dl rejects it, and `reels` becomes `reel`.
+- The rebuilt link is the import's `url` until the download finishes. The download then builds the final canonical URL from `post_shortcode` (`/reel/<code>/` when the post's only media is one video, `/p/<code>/` otherwise), replaces `url` with it, and sends it as the recipe's `orgURL`. A `/share/` link needs that step, because its token isn't the post's shortcode.
 - Failure hints for `download_failed`: a 401 or a login redirect suggests the cookies expired, a 404 means the post is private or deleted, and a 429 means Instagram is rate-limiting.
 - yt-dlp is in the image for the video platforms planned after v1.
 
