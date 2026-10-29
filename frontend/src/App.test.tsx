@@ -34,7 +34,8 @@ const rememberBox = () =>
   screen.getByRole("checkbox", { name: /remember me/i });
 
 async function connectWith(key: string) {
-  await userEvent.type(keyField(), key);
+  await userEvent.click(keyField());
+  await userEvent.paste(key);
   await userEvent.click(connectButton());
 }
 

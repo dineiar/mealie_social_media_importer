@@ -1,8 +1,6 @@
 import type { ApiClient } from "./client";
 import type { Me } from "./types/Me";
 
-// The backend gives Mealie 10 s for the user lookup and 10 s for the group lookup, one after the other.
-// Waiting longer means the client only gives up on a backend that has stopped answering.
 const ME_TIMEOUT_MS = 25_000;
 
 type Fields = Record<string, unknown>;

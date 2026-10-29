@@ -10,7 +10,7 @@ import {
 } from "react";
 import { type ApiClient, createApiClient } from "../api/client";
 import { fetchMe } from "../api/me";
-import { isKeyRejection, unreachableFor } from "./classifyFailure";
+import { eventForFailure } from "./classifyFailure";
 import { browserKeyStorage } from "./keyStorage";
 import {
   type Credential,
@@ -66,9 +66,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetchMe(api, controller.signal).then(
       (me) => dispatch({ type: "verified", me }),
       (error: unknown) => {
-        // The client's onUnauthorized hook already rejected the key on a 401.
-        if (!controller.signal.aborted && !isKeyRejection(error)) {
-          dispatch(unreachableFor(error));
+        if (!controller.signal.aborted) {
+          dispatch(eventForFailure(error));
         }
       },
     );
