@@ -22,7 +22,8 @@ There is no database. State lives in the browser (the API key), in the backend's
 ```
 backend/
   src/
-    main.rs          startup, router, graceful shutdown, `healthcheck` subcommand
+    main.rs          startup, logging, graceful shutdown, `healthcheck` subcommand
+    lib.rs           AppState and `router()`, exported for the integration tests
     config.rs        environment parsing and validation
     error.rs         AppError and its JSON response
     auth.rs          Bearer extractor, cached Mealie user lookup
@@ -61,7 +62,7 @@ design/              approved mockups
 
 ## Backend API
 
-All endpoints live under `/api`. Every endpoint needs `Authorization: Bearer <Mealie API key>`, except `health`, `config` and signed file downloads. Errors come back with the matching status code and `{"error": {"kind": "...", "message": "..."}}`.
+All endpoints live under `/api`. Every endpoint needs `Authorization: Bearer <Mealie API key>`, except `health`, `config` and signed file downloads. Errors come back with the matching status code and `{"error": {"kind": "...", "message": "..."}}`. The shape holds for errors raised by the router and middleware too: an unknown path returns 404 `not_found`, a wrong method 405 `method_not_allowed`, a body over 64 KiB 413 `payload_too_large`, and a response that doesn't start within 660 s 504 `timeout`. `message` is a fixed English string, never the text of an underlying error.
 
 | Method | Path | Behaviour |
 | --- | --- | --- |
@@ -229,7 +230,7 @@ Instagram refreshes some cookies on its responses, and gallery-dl and yt-dlp wri
 
 ## Configuration
 
-Only `MEALIE_URL` is required. The backend validates everything at startup and exits with one line per invalid variable.
+Only `MEALIE_URL` is required. A variable set to an empty value counts as unset. The backend validates everything at startup and exits with one line per invalid variable. The `healthcheck` subcommand reads only `BIND_ADDR`.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -267,7 +268,7 @@ The frontend container has one setting, `BACKEND_URL` (default `http://backend:8
 
 - Backend tests never touch the network. The pipeline depends on the `Downloader`, `Transcriber` and `MealieApi` traits and is tested with fakes. The Mealie and speech API clients are tested against wiremock. Downloaders are tested with stub executables that replay recorded fixtures. Live tests are marked `#[ignore]` and run by hand.
 - Frontend tests use Vitest, React Testing Library and MSW, with one test per designed state.
-- CI runs `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`, Biome, `tsc --noEmit`, Vitest, `vite build`, the ts-rs drift check, and Docker builds of both images.
+- CI runs `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, Biome, `tsc --noEmit`, Vitest, `vite build`, the ts-rs drift check, and Docker builds of both images.
 
 ## Deployment
 
