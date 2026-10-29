@@ -1,0 +1,104 @@
+.account {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.account__user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.account__names {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.account__name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.account__handle {
+  font-size: 13px;
+  color: var(--subtle);
+}
+
+.account__divider {
+  width: 1px;
+  height: 28px;
+  background: var(--border);
+}
+
+.btn--logoff {
+  padding: 0 14px;
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+@media (max-width: 640px) {
+  .account {
+    gap: 10px;
+  }
+
+  .account__user {
+    gap: 8px;
+  }
+
+  .avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .account__name,
+  .account__divider,
+  .btn--logoff svg {
+    display: none;
+  }
+
+  .account__handle {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .btn--logoff {
+    padding: 0 12px;
+  }
+
+  .account--name-only {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  .account--name-only .account__user,
+  .account--name-only .account__names {
+    min-width: 0;
+  }
+
+  .account--name-only .account__name {
+    display: block;
+    max-width: 12em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

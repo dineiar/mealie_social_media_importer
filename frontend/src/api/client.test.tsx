@@ -1,15 +1,16 @@
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { neverAnswers, unauthorizedResponse } from "../test/fixtures";
 import { server } from "../test/server";
-import { createApiClient, type KeySource } from "./client";
+import { type ApiClientOptions, createApiClient } from "./client";
 import { ApiError, UNKNOWN_ERROR_KIND } from "./error";
 import { createQueryClient } from "./queryClient";
 
 const KEY = "secret-key-123";
-const withKey: KeySource = { getKey: () => KEY };
-const withoutKey: KeySource = { getKey: () => null };
+const withKey: ApiClientOptions = { getKey: () => KEY };
+const withoutKey: ApiClientOptions = { getKey: () => null };
 
 interface ConfigResponse {
   version: string;
@@ -81,20 +82,96 @@ describe("createApiClient", () => {
   });
 
   it("turns an error response into an ApiError with the backend's kind and message", async () => {
-    server.use(
-      http.get("/api/me", () =>
-        HttpResponse.json(
-          { error: { kind: "unauthorized", message: "Key rejected" } },
-          { status: 401 },
-        ),
-      ),
-    );
+    server.use(http.get("/api/me", unauthorizedResponse));
 
     const error = await failureOf(createApiClient(withKey)("/api/me"));
 
     expect(error.status).toBe(401);
     expect(error.kind).toBe("unauthorized");
     expect(error.message).toBe("Key rejected");
+  });
+
+  it("tells the caller about a 401 before it throws", async () => {
+    server.use(http.get("/api/imports", unauthorizedResponse));
+    const onUnauthorized = vi.fn();
+
+    const error = await failureOf(
+      createApiClient({ ...withKey, onUnauthorized })("/api/imports"),
+    );
+
+    expect(error.status).toBe(401);
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["a success", () => HttpResponse.json([])],
+    ["a 403", () => HttpResponse.json({}, { status: 403 })],
+    ["a 404", () => HttpResponse.json({}, { status: 404 })],
+    ["a 500", () => HttpResponse.json({}, { status: 500 })],
+  ])("does not tell the caller about %s", async (_name, respond) => {
+    server.use(http.get("/api/imports", respond));
+    const onUnauthorized = vi.fn();
+
+    await createApiClient({ ...withKey, onUnauthorized })("/api/imports").catch(
+      () => undefined,
+    );
+
+    expect(onUnauthorized).not.toHaveBeenCalled();
+  });
+
+  it("gives up with a TimeoutError when the server doesn't answer in time", async () => {
+    server.use(http.get("/api/me", neverAnswers));
+
+    const error = await createApiClient(withKey)("/api/me", {
+      timeoutMs: 20,
+    }).catch((e: unknown) => e);
+
+    expect(error).toMatchObject({ name: "TimeoutError" });
+  });
+
+  it("returns an answer that comes in time", async () => {
+    server.use(http.get("/api/me", () => HttpResponse.json({ ok: true })));
+
+    const body = await createApiClient(withKey)("/api/me", { timeoutMs: 1000 });
+
+    expect(body).toEqual({ ok: true });
+  });
+
+  it("still stops when the caller aborts before the timeout", async () => {
+    server.use(http.get("/api/me", neverAnswers));
+    const caller = new AbortController();
+
+    const pending = createApiClient(withKey)("/api/me", {
+      signal: caller.signal,
+      timeoutMs: 60_000,
+    }).catch((e: unknown) => e);
+    caller.abort();
+
+    expect(await pending).toMatchObject({ name: "AbortError" });
+  });
+
+  it("stops without sending anything when the caller's signal is already aborted", async () => {
+    let received = false;
+    server.use(
+      http.get("/api/me", () => {
+        received = true;
+        return HttpResponse.json({});
+      }),
+    );
+    const caller = new AbortController();
+    caller.abort();
+
+    const error = await createApiClient(withKey)("/api/me", {
+      signal: caller.signal,
+      timeoutMs: 1000,
+    }).catch((e: unknown) => e);
+
+    expect(error).toMatchObject({ name: "AbortError" });
+    expect(received).toBe(false);
+  });
+
+  it("runs without AbortSignal.any, as Safari before 17.4 does", () => {
+    expect("any" in AbortSignal).toBe(false);
   });
 
   it("falls back to the unknown kind when the error body is not JSON", async () => {
