@@ -72,6 +72,7 @@ export function LoginPage() {
           </div>
           <form
             className="login-form"
+            method="post"
             aria-busy={checking || undefined}
             onSubmit={handleSubmit}
           >

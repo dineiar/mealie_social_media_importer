@@ -55,6 +55,14 @@ describe("the login screen", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("posts the form if the browser ever submits it natively, so the key can't reach the address", () => {
+    renderApp();
+
+    const form = connectButton().closest("form");
+
+    expect(form?.method).toBe("post");
+  });
+
   it("shows and hides the key", async () => {
     renderApp();
     await userEvent.type(keyField(), KEY_TEXT);
