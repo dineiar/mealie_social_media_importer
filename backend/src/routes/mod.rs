@@ -1,5 +1,7 @@
 mod config;
+mod files;
 mod health;
+mod imports;
 mod me;
 
 use std::time::Duration;
@@ -32,6 +34,9 @@ pub fn router(state: AppState) -> Router {
             .route("/api/health", get(health::health))
             .route("/api/config", get(config::config))
             .route("/api/me", get(me::me))
+            .route("/api/imports", get(imports::list))
+            .route("/api/imports/{id}", get(imports::get))
+            .route("/api/files/{id}/{name}", get(files::download))
             .fallback(|| async { AppError::NotFound })
             .method_not_allowed_fallback(|| async { AppError::MethodNotAllowed }),
     )

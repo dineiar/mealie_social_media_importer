@@ -73,11 +73,13 @@ fn invalid_configuration_exits_non_zero_with_one_line_per_variable() {
 fn healthcheck_follows_the_server_from_start_to_sigterm() {
     let port = free_port();
     let listen = format!("127.0.0.1:{port}");
+    let data_dir = tempfile::tempdir().unwrap();
     let mut server = Server(
         command(
             &[
                 ("MEALIE_URL", "http://localhost:9000"),
                 ("BIND_ADDR", &listen),
+                ("DATA_DIR", data_dir.path().to_str().unwrap()),
             ],
             &[],
         )

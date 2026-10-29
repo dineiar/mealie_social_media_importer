@@ -3,12 +3,14 @@ pub mod config;
 pub mod error;
 pub mod mealie;
 mod routes;
+pub mod store;
 
 use std::sync::Arc;
 
 use auth::{Authenticator, USER_TTL};
 use config::Config;
 use mealie::MealieApi;
+use store::{ImportStore, SystemClock};
 
 pub use routes::router;
 
@@ -16,13 +18,24 @@ pub use routes::router;
 pub struct AppState {
     config: Arc<Config>,
     mealie: Arc<Authenticator>,
+    imports: Arc<ImportStore>,
 }
 
 impl AppState {
     pub fn new(config: Config, mealie: Arc<dyn MealieApi>) -> Self {
+        let imports = ImportStore::new(
+            &config.data_dir,
+            config.media_retention,
+            Arc::new(SystemClock),
+        );
         Self {
             config: Arc::new(config),
             mealie: Arc::new(Authenticator::new(mealie, USER_TTL)),
+            imports: Arc::new(imports),
         }
+    }
+
+    pub fn with_imports(self, imports: Arc<ImportStore>) -> Self {
+        Self { imports, ..self }
     }
 }

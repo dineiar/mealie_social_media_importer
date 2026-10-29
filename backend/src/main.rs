@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use mealie_importer::config::{self, Config, ConfigError, LogFormat};
 use mealie_importer::mealie::MealieClient;
+use mealie_importer::store::{self, ImportStore, SystemClock};
 use mealie_importer::{AppState, router};
 use tokio::net::TcpListener;
 use tokio::signal::unix::{SignalKind, signal};
@@ -55,6 +56,18 @@ async fn serve(config: Config) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    let imports = match ImportStore::open(
+        &config.data_dir,
+        config.media_retention,
+        Arc::new(SystemClock),
+    ) {
+        Ok(imports) => imports,
+        Err(error) => {
+            let data_dir = config.data_dir.display();
+            tracing::error!(%data_dir, %error, "cannot open the import store");
+            return ExitCode::FAILURE;
+        }
+    };
     let addr = config.bind_addr;
     let listener = match TcpListener::bind(addr).await {
         Ok(listener) => listener,
@@ -64,7 +77,11 @@ async fn serve(config: Config) -> ExitCode {
         }
     };
     tracing::info!(%addr, version = env!("CARGO_PKG_VERSION"), "listening");
-    let app = router(AppState::new(config, Arc::new(mealie)));
+    tokio::spawn(store::sweep_every(
+        Arc::clone(&imports),
+        store::SWEEP_PERIOD,
+    ));
+    let app = router(AppState::new(config, Arc::new(mealie)).with_imports(imports));
     match axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await

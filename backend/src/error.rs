@@ -9,6 +9,7 @@ use crate::mealie::MealieError;
 #[derive(Debug)]
 pub enum AppError {
     Unauthorized,
+    Forbidden,
     MealieUnreachable,
     NotFound,
     MethodNotAllowed,
@@ -29,6 +30,11 @@ impl AppError {
                 status: StatusCode::UNAUTHORIZED,
                 kind: "unauthorized",
                 message: "A valid Mealie API key is required.",
+            },
+            Self::Forbidden => Wire {
+                status: StatusCode::FORBIDDEN,
+                kind: "forbidden",
+                message: "This link is invalid or has expired.",
             },
             Self::MealieUnreachable => Wire {
                 status: StatusCode::BAD_GATEWAY,
