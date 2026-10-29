@@ -37,6 +37,7 @@ cd backend
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 cargo test
+scripts/check-api-types.sh   # fails when frontend/src/api/types is stale
 cargo run              # needs MEALIE_URL
 
 # frontend

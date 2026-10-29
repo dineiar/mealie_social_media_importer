@@ -11,6 +11,7 @@ use mealie_importer::mealie::{
     RecipeSlug,
 };
 use secrecy::SecretString;
+use serde_json::{Value, json};
 use tempfile::TempDir;
 use wiremock::matchers::any;
 use wiremock::{Mock, MockServer, Request, ResponseTemplate};
@@ -67,9 +68,13 @@ pub fn ai_request(content: &str) -> AiRecipeRequest {
     }
 }
 
-pub fn base_url(url: &str) -> BaseUrl {
+pub fn config(url: &str) -> Config {
     let vars = HashMap::from([("MEALIE_URL".to_owned(), url.to_owned())]);
-    Config::from_vars(&vars).expect("a valid URL").mealie_url
+    Config::from_vars(&vars).expect("a valid URL")
+}
+
+pub fn base_url(url: &str) -> BaseUrl {
+    config(url).mealie_url
 }
 
 pub fn client_for(url: &str, timeout: Duration) -> MealieClient {
@@ -80,13 +85,66 @@ pub fn client(server: &MockServer) -> MealieClient {
     client_for(&server.uri(), Duration::from_secs(10))
 }
 
-pub fn refused_client() -> MealieClient {
+pub fn refused_url() -> String {
     let port = TcpListener::bind("127.0.0.1:0")
         .unwrap()
         .local_addr()
         .unwrap()
         .port();
-    client_for(&format!("http://127.0.0.1:{port}"), Duration::from_secs(10))
+    format!("http://127.0.0.1:{port}")
+}
+
+pub fn refused_client() -> MealieClient {
+    client_for(&refused_url(), Duration::from_secs(10))
+}
+
+pub async fn calls_to(server: &MockServer, request_path: &str) -> usize {
+    server
+        .received_requests()
+        .await
+        .unwrap()
+        .iter()
+        .filter(|request| request.url.path() == request_path)
+        .count()
+}
+
+pub fn user_json() -> Value {
+    json!({
+        "id": "eaab0b0e-0df9-402c-8f5c-90cced537b01",
+        "username": "admin",
+        "fullName": "Change Me",
+        "email": "changeme@example.com",
+        "authMethod": "Mealie",
+        "admin": true,
+        "group": "Home",
+        "household": "Family",
+        "groupId": "6b1a1bee-d945-4637-91b4-9ba84955a398",
+        "groupSlug": "home",
+        "householdSlug": "family",
+        "tokens": [{ "name": "importer", "id": 1 }],
+    })
+}
+
+pub fn group_json(ai_enabled: bool, image_enabled: bool) -> Value {
+    json!({
+        "name": "Home",
+        "slug": "home",
+        "aiProviderSettings": {
+            "defaultProviderId": null,
+            "providers": [],
+            "aiEnabled": ai_enabled,
+            "audioProviderEnabled": false,
+            "imageProviderEnabled": image_enabled,
+        },
+    })
+}
+
+pub fn users_ok() -> ResponseTemplate {
+    ResponseTemplate::new(200).set_body_json(user_json())
+}
+
+pub fn groups_ok() -> ResponseTemplate {
+    ResponseTemplate::new(200).set_body_json(group_json(true, false))
 }
 
 pub fn kind(error: &MealieError) -> &'static str {

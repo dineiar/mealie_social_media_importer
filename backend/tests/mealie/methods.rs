@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use mealie_importer::config::Config;
 use mealie_importer::mealie::{
@@ -15,40 +15,9 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use crate::support::{
     Call, Files, KEY, PHOTO_LEN, VIDEO_LEN, ai_request, authorization, bearer, binary,
-    capture_logs, client, client_for, key, kind, multipart, refused_client, serve, slug,
-    the_request,
+    capture_logs, client, client_for, group_json, key, kind, multipart, refused_client, serve,
+    slug, the_request, user_json,
 };
-
-fn user_json() -> Value {
-    json!({
-        "id": "eaab0b0e-0df9-402c-8f5c-90cced537b01",
-        "username": "admin",
-        "fullName": "Change Me",
-        "email": "changeme@example.com",
-        "authMethod": "Mealie",
-        "admin": true,
-        "group": "Home",
-        "household": "Family",
-        "groupId": "6b1a1bee-d945-4637-91b4-9ba84955a398",
-        "groupSlug": "home",
-        "householdSlug": "family",
-        "tokens": [{ "name": "importer", "id": 1 }],
-    })
-}
-
-fn group_json(ai_enabled: bool, image_enabled: bool) -> Value {
-    json!({
-        "name": "Home",
-        "slug": "home",
-        "aiProviderSettings": {
-            "defaultProviderId": null,
-            "providers": [],
-            "aiEnabled": ai_enabled,
-            "audioProviderEnabled": false,
-            "imageProviderEnabled": image_enabled,
-        },
-    })
-}
 
 fn recipe_json() -> Value {
     json!({
@@ -608,6 +577,47 @@ async fn a_body_the_client_cannot_read_is_a_decode_cause_not_a_transport_one() {
 }
 
 #[tokio::test]
+async fn the_two_self_lookups_give_up_early_while_the_other_calls_keep_the_long_timeout() {
+    let delay = Duration::from_millis(600);
+    let server = MockServer::start().await;
+    for (route, body, status) in [
+        ("/api/users/self", user_json(), 200),
+        ("/api/groups/self", group_json(true, false), 200),
+        ("/api/recipes/create/ai", json!("one-pan-lemon-orzo"), 201),
+    ] {
+        Mock::given(path(route))
+            .respond_with(
+                ResponseTemplate::new(status)
+                    .set_body_json(body)
+                    .set_delay(delay),
+            )
+            .mount(&server)
+            .await;
+    }
+    let api = client_for(&server.uri(), Duration::from_secs(10))
+        .with_lookup_timeout(Duration::from_millis(100));
+
+    for call in [Call::UsersSelf, Call::GroupsSelf] {
+        let started = Instant::now();
+        let error = call.run(&api, &Files::new()).await.unwrap_err();
+
+        assert!(
+            matches!(&error, MealieError::Unreachable(Cause::Transport(e)) if e.is_timeout()),
+            "{call:?} gave {error:?}"
+        );
+        assert!(
+            started.elapsed() < Duration::from_millis(500),
+            "{call:?} waited {:?}",
+            started.elapsed()
+        );
+    }
+    Call::CreateFromAi
+        .run(&api, &Files::new())
+        .await
+        .expect("a call that is not a self lookup waits for Mealie's answer");
+}
+
+#[tokio::test]
 async fn from_config_uses_the_configured_url_and_timeout() {
     let server = serve(ResponseTemplate::new(200).set_delay(Duration::from_millis(2500))).await;
     let vars = HashMap::from([
@@ -616,7 +626,10 @@ async fn from_config_uses_the_configured_url_and_timeout() {
     ]);
     let api = MealieClient::from_config(&Config::from_vars(&vars).unwrap()).unwrap();
 
-    let error = api.users_self(&key()).await.unwrap_err();
+    let error = api
+        .get_recipe(&key(), &slug("one-pan-lemon-orzo"))
+        .await
+        .unwrap_err();
 
     assert!(
         matches!(&error, MealieError::Unreachable(Cause::Transport(e)) if e.is_timeout()),

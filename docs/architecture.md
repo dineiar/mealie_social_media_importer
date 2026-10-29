@@ -55,20 +55,20 @@ design/              approved mockups
 ## Login and session
 
 1. The user pastes a Mealie API key. With "Remember me" checked, the frontend stores it in `localStorage`. Unchecked, it goes to `sessionStorage`, which the browser clears when the tab closes.
-2. Every API call sends `Authorization: Bearer <key>`. The backend validates the key with Mealie's `GET /api/users/self` and caches the answer for 5 minutes, keyed by the SHA-256 of the key. Any 401 from Mealie evicts the entry.
+2. Every API call sends `Authorization: Bearer <key>`. The backend validates the key with Mealie's `GET /api/users/self` and caches the answer for 5 minutes, keyed by the SHA-256 of the key. Any 401 or 403 from Mealie, on any call made with that key, evicts the entry. A 403 can also mean the user lacks a permission, and then the next request only looks the user up again. A key revoked in Mealie keeps working for up to 5 minutes on an endpoint that never calls Mealie.
 3. On load, the frontend calls `GET /api/me` with the stored key. A 401 clears the key and shows the login form with "Mealie didn't accept this key." A 502 keeps the key and shows a banner saying Mealie can't be reached.
 4. "Log off" removes the key from both storages and clears the query cache.
 5. `/?url=<post link>` fills the link field and starts the import once the user is logged in. The parameter survives the login screen.
 
 ## Backend API
 
-All endpoints live under `/api`. Every endpoint needs `Authorization: Bearer <Mealie API key>`, except `health`, `config` and signed file downloads. Errors come back with the matching status code and `{"error": {"kind": "...", "message": "..."}}`. The shape holds for errors raised by the router and middleware too: an unknown path returns 404 `not_found`, a wrong method 405 `method_not_allowed`, a body over 64 KiB 413 `payload_too_large`, and a response that doesn't start within 660 s 504 `timeout`. `message` is a fixed English string, never the text of an underlying error.
+All endpoints live under `/api`. Every endpoint needs `Authorization: Bearer <Mealie API key>`, except `health`, `config` and signed file downloads. Errors come back with the matching status code and `{"error": {"kind": "...", "message": "..."}}`. The shape holds for errors raised by the router and middleware too: an unknown path returns 404 `not_found`, a wrong method 405 `method_not_allowed`, a body over 64 KiB 413 `payload_too_large`, and a response that doesn't start within 660 s 504 `timeout`. A missing key, an `Authorization` header with any scheme other than `Bearer`, or a key Mealie answers 401 or 403, returns 401 `unauthorized`. A Mealie that can't be reached, or answers a self-lookup with a status or body the importer doesn't expect, returns 502 `mealie_unreachable`. `message` is a fixed English string, never the text of an underlying error.
 
 | Method | Path | Behaviour |
 | --- | --- | --- |
 | GET | `/api/health` | 200 `{"status":"ok"}`. Used by the Docker healthcheck |
 | GET | `/api/config` | `{"mealie_public_url", "retention_minutes", "version"}` |
-| GET | `/api/me` | `{"id", "username", "full_name", "group_slug", "ai": {"enabled", "image_enabled"}}`. 401 when Mealie rejects the key, 502 when Mealie can't be reached |
+| GET | `/api/me` | `{"id", "username", "full_name", "group_slug", "ai": {"enabled", "image_enabled"}}`. `username` and `full_name` are null when Mealie has none. The user comes from the 5-minute cache, `ai` from a fresh `GET /api/groups/self`. 401 when the key is missing or Mealie rejects it, 502 when Mealie can't be reached |
 | GET | `/api/platforms` | `[{"id":"instagram", "name":"Instagram", "status":"ready" \| "not_configured", "hint"}]` |
 | POST | `/api/imports` | Body `{"url": string, "language"?: string}`. 202 with the new import record. 400 for an unsupported host or a platform that isn't set up. If the same URL is already queued or running for this user, 200 with that record. `?wait=true` holds the response until the import finishes, capped at 10 minutes |
 | GET | `/api/imports` | The caller's imports, newest first |
@@ -80,7 +80,7 @@ All endpoints live under `/api`. Every endpoint needs `Authorization: Bearer <Me
 
 ### Import record
 
-API types are defined once in Rust and exported to `frontend/src/api/types/` with ts-rs. CI fails if the committed types differ from a fresh export.
+API types are defined once in Rust and exported to `frontend/src/api/types/` with ts-rs. Mark each root request or response type `#[ts(export)]`, and `cargo test` in `backend/` rewrites its file along with the files of the types it contains. ts-rs names a file after the type, so type names are unique across the API. CI runs `backend/scripts/check-api-types.sh`, which fails if the committed files differ from a fresh export, and the backend job also runs when only `frontend/src/api/types/` changes.
 
 ```json
 {
@@ -236,7 +236,7 @@ Only `MEALIE_URL` is required. A variable set to an empty value counts as unset.
 | --- | --- | --- |
 | `MEALIE_URL` | required | Base URL the backend uses to reach Mealie, e.g. `http://mealie:9000` |
 | `MEALIE_PUBLIC_URL` | `MEALIE_URL` | Base URL for "Open in Mealie" links |
-| `MEALIE_TIMEOUT_SECS` | `330` | Per-request timeout, above Mealie's 300 s AI timeout |
+| `MEALIE_TIMEOUT_SECS` | `330` | Per-request timeout, above Mealie's 300 s AI timeout. `users/self` and `groups/self` use 10 s instead, or this value when it is lower, so a Mealie that accepts the connection and never answers fails the login check in seconds |
 | `MEALIE_CREATE_TAGS` | `true` | Sent as `createNewOrganizers` |
 | `INSTAGRAM_COOKIES_FILE` | `/config/cookies/instagram.txt` | The original cookies file |
 | `TRANSCRIPTION_BASE_URL` | empty | OpenAI-compatible speech API base URL. Empty turns transcription off. `.env.example` sets `http://whisper:8000/v1` |
