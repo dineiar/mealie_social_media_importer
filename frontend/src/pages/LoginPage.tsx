@@ -15,6 +15,8 @@ import {
   SpinnerIcon,
 } from "../components/icons";
 
+const CHECKING_LABEL = "Checking your key…";
+
 export function LoginPage() {
   const { session, check } = useAuth();
   const seed = credentialOf(session);
@@ -70,6 +72,9 @@ export function LoginPage() {
               </p>
             </div>
           </div>
+          <p role="status" className="visually-hidden">
+            {checking ? CHECKING_LABEL : ""}
+          </p>
           <form
             className="login-form"
             method="post"
@@ -131,7 +136,7 @@ export function LoginPage() {
               {checking ? (
                 <>
                   <SpinnerIcon width={18} height={18} />
-                  Checking your key…
+                  {CHECKING_LABEL}
                 </>
               ) : (
                 <>

@@ -91,6 +91,21 @@ describe("the login screen", () => {
     expect(await screen.findByText("Ana Souza")).toBeInTheDocument();
   });
 
+  it("announces the check to screen readers from a region that is not busy", async () => {
+    const { release } = holdMeAnswer();
+    renderApp();
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+
+    await connectWith(KEY_TEXT);
+
+    const announcement = screen.getByRole("status");
+    expect(announcement).toHaveTextContent("Checking your key…");
+    expect(announcement.closest("[aria-busy]")).toBeNull();
+
+    release();
+    await screen.findByText("Ana Souza");
+  });
+
   it("keeps Remember me as chosen while the key is being checked", async () => {
     holdMeAnswer();
     renderApp();
@@ -378,13 +393,13 @@ describe("the banners", () => {
     renderApp();
     await connectWith(KEY_TEXT);
 
-    const notice = await screen.findByRole("status");
+    await screen.findByText("Ana Souza");
+    const notice = screen.getByRole("status");
 
     expect(notice).toHaveTextContent("AI is off in Mealie");
     expect(notice).toHaveTextContent(
       "Recipes can't be created until AI is set up in Mealie.",
     );
-    expect(screen.getByText("Ana Souza")).toBeInTheDocument();
   });
 
   it("says Mealie can't be reached and keeps the key", async () => {
