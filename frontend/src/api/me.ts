@@ -1,4 +1,9 @@
+import type { ApiClient } from "./client";
 import type { Me } from "./types/Me";
+
+// The backend gives Mealie 10 s for the user lookup and 10 s for the group lookup, one after the other.
+// Waiting longer means the client only gives up on a backend that has stopped answering.
+const ME_TIMEOUT_MS = 25_000;
 
 type Fields = Record<string, unknown>;
 
@@ -31,4 +36,13 @@ export function parseMe(body: unknown): Me {
     }
   }
   throw new TypeError("GET /api/me answered with an unexpected shape");
+}
+
+export async function fetchMe(
+  api: ApiClient,
+  signal: AbortSignal,
+): Promise<Me> {
+  return parseMe(
+    await api<unknown>("/api/me", { signal, timeoutMs: ME_TIMEOUT_MS }),
+  );
 }

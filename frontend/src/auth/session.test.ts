@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aMe, KEY, requireApiKey } from "../test/fixtures";
+import { aMe, KEY, OTHER_KEY, requireApiKey } from "../test/fixtures";
 import {
   type Credential,
   credentialOf,
@@ -136,15 +136,11 @@ describe("sessionReducer", () => {
 });
 
 describe("a key changing in another tab", () => {
-  const forgotten: SessionEvent = {
-    type: "stored_key_changed",
-    change: { kind: "forgotten" },
-  };
+  const forgotten: SessionEvent = { type: "stored_key_changed", key: null };
   const remembered = (key: Credential["key"]): SessionEvent => ({
     type: "stored_key_changed",
-    change: { kind: "remembered", key },
+    key,
   });
-  const otherKey = requireApiKey("another-key-9876543210");
   const withCredential = { checking, loggedIn, unreachable };
 
   it.each(Object.entries(withCredential))(
@@ -166,7 +162,7 @@ describe("a key changing in another tab", () => {
     ["rejected", rejected],
   ])("has nothing to follow when %s", (_name, session) => {
     expect(run(session, forgotten)).toBe(session);
-    expect(run(session, remembered(otherKey))).toBe(session);
+    expect(run(session, remembered(OTHER_KEY))).toBe(session);
   });
 
   it.each(Object.entries(lentSessions))(
@@ -182,9 +178,9 @@ describe("a key changing in another tab", () => {
   it.each(Object.entries(withCredential))(
     "checks the key another tab remembered in %s",
     (_name, session) => {
-      expect(run(session, remembered(otherKey))).toEqual({
+      expect(run(session, remembered(OTHER_KEY))).toEqual({
         kind: "checking",
-        credential: { key: otherKey, remember: true },
+        credential: { key: OTHER_KEY, remember: true },
       });
     },
   );

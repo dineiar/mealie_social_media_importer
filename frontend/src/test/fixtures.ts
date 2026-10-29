@@ -2,6 +2,7 @@ import { act } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import type { Me } from "../api/types/Me";
 import { type ApiKey, parseApiKey } from "../auth/apiKey";
+import { STORAGE_KEY } from "../auth/keyStorage";
 import { server } from "./server";
 
 export const KEY_TEXT = "mealie-key-0123456789";
@@ -15,6 +16,9 @@ export function requireApiKey(raw: string): ApiKey {
 }
 
 export const KEY = requireApiKey(KEY_TEXT);
+
+export const OTHER_KEY_TEXT = "another-key-9876543210";
+export const OTHER_KEY = requireApiKey(OTHER_KEY_TEXT);
 
 export function aMe(overrides: Partial<Me> = {}): Me {
   return {
@@ -54,11 +58,18 @@ export function meIs(me: Me = aMe()) {
   return meRequests(() => HttpResponse.json(me));
 }
 
-export function holdMeAnswer(me: Me = aMe()) {
+export function deferred() {
   let release: () => void = () => {};
   const released = new Promise<void>((resolve) => {
     release = resolve;
   });
+  return { released, release };
+}
+
+export const neverAnswers = () => new Promise<Response>(() => {});
+
+export function holdMeAnswer(me: Me = aMe()) {
+  const { released, release } = deferred();
   const authorizations = meRequests(async () => {
     await released;
     return HttpResponse.json(me);
@@ -77,27 +88,21 @@ export async function flushEffects() {
   await act(async () => {});
 }
 
-const STORED_KEY_NAME = "mealie-importer.api-key";
-
-function announceToOtherTabs(newValue: string | null) {
+export function dispatchStorageEvent(init: StorageEventInit) {
   act(() => {
     window.dispatchEvent(
-      new StorageEvent("storage", {
-        key: STORED_KEY_NAME,
-        newValue,
-        storageArea: localStorage,
-      }),
+      new StorageEvent("storage", { storageArea: localStorage, ...init }),
     );
   });
 }
 
 export const anotherTab = {
   remembers(key: string = KEY_TEXT) {
-    localStorage.setItem(STORED_KEY_NAME, key);
-    announceToOtherTabs(key);
+    localStorage.setItem(STORAGE_KEY, key);
+    dispatchStorageEvent({ key: STORAGE_KEY, newValue: key });
   },
   logsOff() {
-    localStorage.removeItem(STORED_KEY_NAME);
-    announceToOtherTabs(null);
+    localStorage.removeItem(STORAGE_KEY);
+    dispatchStorageEvent({ key: STORAGE_KEY, newValue: null });
   },
 };

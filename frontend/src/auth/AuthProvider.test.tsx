@@ -20,10 +20,13 @@ import {
   mealieUnreachableResponse,
   meIs,
   meRequests,
+  neverAnswers,
+  OTHER_KEY_TEXT,
   storedValues,
   unauthorizedResponse,
 } from "../test/fixtures";
 import { AuthProvider, useAuth } from "./AuthProvider";
+import { STORAGE_KEY } from "./keyStorage";
 import type { Session } from "./session";
 
 function describeSession(session: Session): string {
@@ -84,7 +87,7 @@ describe("AuthProvider", () => {
   });
 
   it("logs in under StrictMode, which aborts the first check before it answers", async () => {
-    localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+    localStorage.setItem(STORAGE_KEY, KEY_TEXT);
     meIs();
 
     renderProvider(createQueryClient(), StrictMode);
@@ -126,7 +129,7 @@ describe("AuthProvider", () => {
     ["localStorage", () => localStorage],
     ["sessionStorage", () => sessionStorage],
   ])("logs in on load with the key from %s", async (_name, area) => {
-    area().setItem("mealie-importer.api-key", KEY_TEXT);
+    area().setItem(STORAGE_KEY, KEY_TEXT);
     const authorizations = meIs();
 
     renderProvider();
@@ -137,7 +140,7 @@ describe("AuthProvider", () => {
   });
 
   it("clears a stored key that Mealie rejects on load", async () => {
-    localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+    localStorage.setItem(STORAGE_KEY, KEY_TEXT);
     meRequests(unauthorizedResponse);
 
     renderProvider();
@@ -148,7 +151,7 @@ describe("AuthProvider", () => {
   });
 
   it("keeps the key and asks once when Mealie can't be reached", async () => {
-    localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+    localStorage.setItem(STORAGE_KEY, KEY_TEXT);
     const authorizations = meRequests(mealieUnreachableResponse);
 
     renderProvider();
@@ -171,10 +174,27 @@ describe("AuthProvider", () => {
       "the page answers 200 with HTML instead of the API",
       () => HttpResponse.html("<!doctype html><title>App</title>"),
     ],
+    ["the answer is 200 but not a user", () => HttpResponse.json({})],
+    [
+      "the answer is a 403",
+      () =>
+        HttpResponse.json(
+          { error: { kind: "forbidden", message: "No" } },
+          { status: 403 },
+        ),
+    ],
+    [
+      "the answer is a 404",
+      () =>
+        HttpResponse.json(
+          { error: { kind: "not_found", message: "No" } },
+          { status: 404 },
+        ),
+    ],
   ])(
     "keeps the key and blames the importer when %s",
     async (_name, respond) => {
-      sessionStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+      sessionStorage.setItem(STORAGE_KEY, KEY_TEXT);
       const authorizations = meRequests(respond);
 
       renderProvider();
@@ -188,36 +208,11 @@ describe("AuthProvider", () => {
     },
   );
 
-  it.each([
-    ["an empty object", {}],
-    ["null", null],
-    ["a list", [aMe()]],
-    ["an answer without the AI status", { ...aMe(), ai: undefined }],
-    [
-      "an answer whose AI flag is a string",
-      { ...aMe(), ai: { enabled: "yes" } },
-    ],
-  ])(
-    "keeps the key and blames the importer when /api/me answers %s",
-    async (_name, body) => {
-      sessionStorage.setItem("mealie-importer.api-key", KEY_TEXT);
-      meRequests(() => HttpResponse.json(body));
-
-      renderProvider();
-
-      expect(
-        await screen.findByText("unreachable by backend"),
-      ).toBeInTheDocument();
-      await flushEffects();
-      expect(storedValues()).toEqual({ local: [], tab: [KEY_TEXT] });
-    },
-  );
-
   it("gives up on a backend that never answers, and keeps the key", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {
-      localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
-      meRequests(() => new Promise<Response>(() => {}));
+      localStorage.setItem(STORAGE_KEY, KEY_TEXT);
+      meRequests(neverAnswers);
 
       renderProvider();
       await act(() => vi.advanceTimersByTimeAsync(20_000));
@@ -233,29 +228,8 @@ describe("AuthProvider", () => {
     }
   });
 
-  it.each([403, 404])(
-    "keeps the key and blames the importer when /api/me answers %i",
-    async (status) => {
-      localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
-      meRequests(() =>
-        HttpResponse.json(
-          { error: { kind: "forbidden", message: "No" } },
-          { status },
-        ),
-      );
-
-      renderProvider();
-
-      expect(
-        await screen.findByText("unreachable by backend"),
-      ).toBeInTheDocument();
-      await flushEffects();
-      expect(storedValues()).toEqual({ local: [KEY_TEXT], tab: [] });
-    },
-  );
-
   it("recovers when a check is repeated after the outage", async () => {
-    localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+    localStorage.setItem(STORAGE_KEY, KEY_TEXT);
     let up = false;
     meRequests(() =>
       up ? HttpResponse.json(aMe()) : mealieUnreachableResponse(),
@@ -300,7 +274,7 @@ describe("AuthProvider", () => {
     await screen.findByText("logged_in");
     queryClient.setQueryData(["imports"], [{ id: "earlier-import" }]);
 
-    anotherTab.remembers("another-key-9876543210");
+    anotherTab.remembers(OTHER_KEY_TEXT);
 
     expect(screen.getByRole("status")).toHaveTextContent("checking");
     expect(queryClient.getQueryCache().getAll()).toEqual([]);

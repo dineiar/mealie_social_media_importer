@@ -9,8 +9,8 @@ import {
   useReducer,
 } from "react";
 import { type ApiClient, createApiClient } from "../api/client";
-import { parseMe } from "../api/parseMe";
-import { eventForFailure } from "./classifyFailure";
+import { fetchMe } from "../api/me";
+import { isKeyRejection, unreachableFor } from "./classifyFailure";
 import { browserKeyStorage } from "./keyStorage";
 import {
   type Credential,
@@ -26,10 +26,6 @@ interface Auth {
   check(credential: Credential): void;
   logOff(): void;
 }
-
-// The backend gives Mealie 10 s for the user lookup and 10 s for the group lookup, one after the other.
-// Waiting longer means the client only gives up on a backend that has stopped answering.
-const ME_TIMEOUT_MS = 25_000;
 
 const AuthContext = createContext<Auth | null>(null);
 
@@ -61,28 +57,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [key],
   );
 
-  const checkedKey =
-    session.kind === "checking" ? session.credential.key : null;
+  const checking = session.kind === "checking";
   useEffect(() => {
-    if (checkedKey === null) {
+    if (!checking) {
       return;
     }
     const controller = new AbortController();
-    api<unknown>("/api/me", {
-      signal: controller.signal,
-      timeoutMs: ME_TIMEOUT_MS,
-    })
-      .then(parseMe)
-      .then(
-        (me) => dispatch({ type: "verified", me }),
-        (error: unknown) => {
-          if (!controller.signal.aborted) {
-            dispatch(eventForFailure(error, checkedKey));
-          }
-        },
-      );
+    fetchMe(api, controller.signal).then(
+      (me) => dispatch({ type: "verified", me }),
+      (error: unknown) => {
+        // The client's onUnauthorized hook already rejected the key on a 401.
+        if (!controller.signal.aborted && !isKeyRejection(error)) {
+          dispatch(unreachableFor(error));
+        }
+      },
+    );
     return () => controller.abort();
-  }, [checkedKey, api]);
+  }, [checking, api]);
 
   useEffect(() => {
     switch (session.kind) {
@@ -103,8 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(
     () =>
-      browserKeyStorage.subscribe((change) =>
-        dispatch({ type: "stored_key_changed", change }),
+      browserKeyStorage.subscribe((key) =>
+        dispatch({ type: "stored_key_changed", key }),
       ),
     [],
   );

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { aMe } from "../test/fixtures";
-import { parseMe } from "./parseMe";
+import { parseMe } from "./me";
 
 describe("parseMe", () => {
   it("returns a well formed answer", () => {

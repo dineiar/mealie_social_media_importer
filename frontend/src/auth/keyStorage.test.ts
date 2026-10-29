@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { KEY, KEY_TEXT } from "../test/fixtures";
-import { createKeyStorage } from "./keyStorage";
-import type { StoredKeyChange } from "./session";
+import { dispatchStorageEvent, KEY, KEY_TEXT } from "../test/fixtures";
+import type { ApiKey } from "./apiKey";
+import { createKeyStorage, STORAGE_KEY } from "./keyStorage";
 
 function valuesOf(storage: Storage): string[] {
   return Object.values(storage);
@@ -39,7 +39,7 @@ describe("createKeyStorage", () => {
 
   it("forgets the key from both storages", () => {
     storage.save({ key: KEY, remember: true });
-    sessionStorage.setItem("mealie-importer.api-key", KEY);
+    sessionStorage.setItem(STORAGE_KEY, KEY);
 
     storage.clear();
 
@@ -49,7 +49,7 @@ describe("createKeyStorage", () => {
   });
 
   it.each(["", "   ", "has space"])("reads %j as no key", (stored) => {
-    localStorage.setItem("mealie-importer.api-key", stored);
+    localStorage.setItem(STORAGE_KEY, stored);
 
     expect(storage.read()).toBeNull();
   });
@@ -70,48 +70,42 @@ describe("createKeyStorage", () => {
 
 describe("createKeyStorage subscribe", () => {
   function listen() {
-    const changes: StoredKeyChange[] = [];
-    const stop = storage.subscribe((change) => changes.push(change));
+    const changes: (ApiKey | null)[] = [];
+    const stop = storage.subscribe((key) => changes.push(key));
     return { changes, stop };
-  }
-
-  function storageEvent(init: StorageEventInit) {
-    window.dispatchEvent(
-      new StorageEvent("storage", { storageArea: localStorage, ...init }),
-    );
   }
 
   it("reports a key another tab saved to localStorage", () => {
     const { changes, stop } = listen();
 
-    storageEvent({ key: "mealie-importer.api-key", newValue: KEY_TEXT });
+    dispatchStorageEvent({ key: STORAGE_KEY, newValue: KEY_TEXT });
 
-    expect(changes).toEqual([{ kind: "remembered", key: KEY }]);
+    expect(changes).toEqual([KEY]);
     stop();
   });
 
   it.each([
-    ["removes the key", { key: "mealie-importer.api-key", newValue: null }],
+    ["removes the key", { key: STORAGE_KEY, newValue: null }],
     ["clears localStorage", { key: null, newValue: null }],
     [
       "saves a value that isn't a key",
-      { key: "mealie-importer.api-key", newValue: "has space" },
+      { key: STORAGE_KEY, newValue: "has space" },
     ],
   ])("reports the key as forgotten when another tab %s", (_name, init) => {
     const { changes, stop } = listen();
 
-    storageEvent(init);
+    dispatchStorageEvent(init);
 
-    expect(changes).toEqual([{ kind: "forgotten" }]);
+    expect(changes).toEqual([null]);
     stop();
   });
 
   it("ignores other keys and other storage areas", () => {
     const { changes, stop } = listen();
 
-    storageEvent({ key: "theme", newValue: "dark" });
-    storageEvent({
-      key: "mealie-importer.api-key",
+    dispatchStorageEvent({ key: "theme", newValue: "dark" });
+    dispatchStorageEvent({
+      key: STORAGE_KEY,
       newValue: KEY_TEXT,
       storageArea: sessionStorage,
     });
@@ -125,7 +119,7 @@ describe("createKeyStorage subscribe", () => {
     const stop = storage.subscribe(listener);
 
     stop();
-    storageEvent({ key: "mealie-importer.api-key", newValue: null });
+    dispatchStorageEvent({ key: STORAGE_KEY, newValue: null });
 
     expect(listener).not.toHaveBeenCalled();
   });

@@ -5,6 +5,7 @@ import { HttpResponse } from "msw";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "./App";
 import { createQueryClient } from "./api/queryClient";
+import { STORAGE_KEY } from "./auth/keyStorage";
 import {
   aMe,
   anotherTab,
@@ -14,6 +15,7 @@ import {
   mealieUnreachableResponse,
   meIs,
   meRequests,
+  OTHER_KEY_TEXT,
   storedValues,
   unauthorizedResponse,
 } from "./test/fixtures";
@@ -206,7 +208,7 @@ describe("where the key is kept", () => {
   });
 
   it("logs in on load with the stored key", async () => {
-    localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+    localStorage.setItem(STORAGE_KEY, KEY_TEXT);
     meIs();
 
     renderApp();
@@ -215,7 +217,7 @@ describe("where the key is kept", () => {
   });
 
   it("shows the error with the old key when Mealie rejects the stored one", async () => {
-    sessionStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+    sessionStorage.setItem(STORAGE_KEY, KEY_TEXT);
     meRequests(unauthorizedResponse);
 
     renderApp();
@@ -230,8 +232,6 @@ describe("where the key is kept", () => {
 });
 
 describe("across tabs", () => {
-  const OTHER_KEY_TEXT = "another-key-9876543210";
-
   it("logs this tab off when another tab logs off, so Try again can't save the key back", async () => {
     const authorizations = meRequests(mealieUnreachableResponse);
     renderApp();
@@ -268,7 +268,7 @@ describe("across tabs", () => {
   });
 
   it("keeps a tab logged off when another tab logs off while its check runs", async () => {
-    localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+    localStorage.setItem(STORAGE_KEY, KEY_TEXT);
     const { release } = holdMeAnswer();
     renderApp();
     await screen.findByRole("button", { name: "Checking your key…" });

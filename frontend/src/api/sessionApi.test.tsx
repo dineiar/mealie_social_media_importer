@@ -3,13 +3,16 @@ import { render, screen } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { describe, expect, it } from "vitest";
 import { AuthProvider, useAuth } from "../auth/AuthProvider";
+import { STORAGE_KEY } from "../auth/keyStorage";
 import {
   anotherTab,
+  deferred,
   flushEffects,
   KEY_TEXT,
   mealieUnreachableResponse,
   meIs,
   meRequests,
+  OTHER_KEY_TEXT,
   storedValues,
   unauthorizedResponse,
 } from "../test/fixtures";
@@ -55,9 +58,12 @@ const importsAnswer = (
 ) => server.use(http.get("/api/imports", ({ request }) => respond(request)));
 
 describe("a call made through the session's API client", () => {
-  it("ends a logged in session when the call gets a 401", async () => {
-    localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
-    meIs();
+  it.each([
+    ["logged in", () => meIs()],
+    ["unreachable", () => meRequests(mealieUnreachableResponse)],
+  ])("ends a %s session when the call gets a 401", async (_name, answerMe) => {
+    localStorage.setItem(STORAGE_KEY, KEY_TEXT);
+    answerMe();
     importsAnswer(unauthorizedResponse);
 
     const queryClient = renderImportScreen();
@@ -68,22 +74,10 @@ describe("a call made through the session's API client", () => {
     expect(queryClient.getQueryCache().getAll()).toEqual([]);
   });
 
-  it("ends an unreachable session when the call gets a 401", async () => {
-    localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
-    meRequests(mealieUnreachableResponse);
-    importsAnswer(unauthorizedResponse);
-
-    renderImportScreen();
-
-    expect(await screen.findByText("rejected")).toBeInTheDocument();
-    await flushEffects();
-    expect(storedValues()).toEqual({ local: [], tab: [] });
-  });
-
   it.each([403, 404, 500])(
     "keeps the session when the call gets a %i",
     async (status) => {
-      localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+      localStorage.setItem(STORAGE_KEY, KEY_TEXT);
       meIs();
       importsAnswer(() => HttpResponse.json({}, { status }));
 
@@ -97,15 +91,11 @@ describe("a call made through the session's API client", () => {
   );
 
   it("ignores a 401 for a key the tab has since replaced", async () => {
-    const otherKey = "another-key-9876543210";
-    localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+    localStorage.setItem(STORAGE_KEY, KEY_TEXT);
     meIs();
-    let refuseOldKey: () => void = () => {};
-    const oldKeyRefused = new Promise<void>((resolve) => {
-      refuseOldKey = resolve;
-    });
+    const { released: oldKeyRefused, release: refuseOldKey } = deferred();
     importsAnswer(async (request) => {
-      if (request.headers.get("Authorization") === `Bearer ${otherKey}`) {
+      if (request.headers.get("Authorization") === `Bearer ${OTHER_KEY_TEXT}`) {
         return HttpResponse.json([]);
       }
       await oldKeyRefused;
@@ -114,13 +104,13 @@ describe("a call made through the session's API client", () => {
     renderImportScreen();
     await screen.findByText("logged_in");
 
-    anotherTab.remembers(otherKey);
+    anotherTab.remembers(OTHER_KEY_TEXT);
     await screen.findByText("checking");
     await screen.findByText("logged_in");
     refuseOldKey();
     await flushEffects();
 
     expect(screen.getByRole("status")).toHaveTextContent("logged_in");
-    expect(storedValues().local).toEqual([otherKey]);
+    expect(storedValues().local).toEqual([OTHER_KEY_TEXT]);
   });
 });

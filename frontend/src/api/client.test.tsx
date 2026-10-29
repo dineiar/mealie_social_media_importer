@@ -2,6 +2,7 @@ import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { describe, expect, it, vi } from "vitest";
+import { neverAnswers, unauthorizedResponse } from "../test/fixtures";
 import { server } from "../test/server";
 import { type ApiClientOptions, createApiClient } from "./client";
 import { ApiError, UNKNOWN_ERROR_KIND } from "./error";
@@ -81,14 +82,7 @@ describe("createApiClient", () => {
   });
 
   it("turns an error response into an ApiError with the backend's kind and message", async () => {
-    server.use(
-      http.get("/api/me", () =>
-        HttpResponse.json(
-          { error: { kind: "unauthorized", message: "Key rejected" } },
-          { status: 401 },
-        ),
-      ),
-    );
+    server.use(http.get("/api/me", unauthorizedResponse));
 
     const error = await failureOf(createApiClient(withKey)("/api/me"));
 
@@ -98,14 +92,7 @@ describe("createApiClient", () => {
   });
 
   it("tells the caller about a 401 before it throws", async () => {
-    server.use(
-      http.get("/api/imports", () =>
-        HttpResponse.json(
-          { error: { kind: "unauthorized", message: "Key rejected" } },
-          { status: 401 },
-        ),
-      ),
-    );
+    server.use(http.get("/api/imports", unauthorizedResponse));
     const onUnauthorized = vi.fn();
 
     const error = await failureOf(
@@ -133,7 +120,7 @@ describe("createApiClient", () => {
   });
 
   it("gives up with a TimeoutError when the server doesn't answer in time", async () => {
-    server.use(http.get("/api/me", () => new Promise<Response>(() => {})));
+    server.use(http.get("/api/me", neverAnswers));
 
     const error = await createApiClient(withKey)("/api/me", {
       timeoutMs: 20,
@@ -151,7 +138,7 @@ describe("createApiClient", () => {
   });
 
   it("still stops when the caller aborts before the timeout", async () => {
-    server.use(http.get("/api/me", () => new Promise<Response>(() => {})));
+    server.use(http.get("/api/me", neverAnswers));
     const caller = new AbortController();
 
     const pending = createApiClient(withKey)("/api/me", {

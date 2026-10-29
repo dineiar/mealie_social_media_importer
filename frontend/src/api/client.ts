@@ -33,6 +33,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       headers.set("Content-Type", "application/json");
     }
 
+    // Not AbortSignal.timeout: fake timers can't drive it, so a test would wait the full timeout.
     const deadline = new AbortController();
     const timer =
       timeoutMs === undefined
