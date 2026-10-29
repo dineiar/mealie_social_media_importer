@@ -62,12 +62,13 @@ design/              approved mockups
    - Any other failure keeps the key and shows a banner saying the importer isn't responding. That covers a rejected `fetch`, nginx's HTML 502 when the backend is down, any other 5xx, and a 200 whose body isn't JSON.
    - A banner has a "Try again" button that repeats the call. While the call runs, the screen is the login form's checking state.
    - An answer with `ai.enabled` set to false is a normal login. The header shows the user and a banner says recipes can't be created until AI is set up in Mealie.
-4. "Log off" removes the key from both storages and clears the query cache. A rejected key does the same. So does the start of any key check, so data fetched under one key never shows under another.
-5. Tabs follow each other through the `storage` event on `localStorage`:
+4. A 401 on any later call made through the session's API client (`useAuth().api`) ends the session like a 401 on `/api/me`, from a logged in or an unreachable session: the key is cleared and the login form shows "Mealie didn't accept this key." A screen needs no code of its own for this. A 403 or 404 doesn't end the session. A 401 for a key the tab has since replaced is ignored.
+5. "Log off" removes the key from both storages and clears the query cache. A rejected key does the same. So does the start of any key check, so data fetched under one key never shows under another.
+6. Tabs follow each other through the `storage` event on `localStorage`:
    - A key removed from `localStorage` logs off every tab that remembered it, also a tab whose check is still running, so a late answer can't save the key again. A tab that holds its key only in `sessionStorage` stays logged in, because that copy belongs to the tab.
    - A key saved to `localStorage` by another tab makes a tab that holds a key follow it and drop its own `sessionStorage` copy. The tab keeps its session when the key is the same and checks the new key when it differs. A signed out tab, and a tab whose key was just rejected, ignores the event.
    - A tab saves a checked key to one storage and removes it from the other. The key sits in both only while a tab checks a key it read on load, and between another tab's save and this tab handling the event.
-6. `/?url=<post link>` fills the link field and starts the import once the user is logged in. Nothing on the login path navigates or rewrites the address, so the parameter survives the login screen.
+7. `/?url=<post link>` fills the link field and starts the import once the user is logged in. Nothing on the login path navigates or rewrites the address, so the parameter survives the login screen.
 
 ## Backend API
 

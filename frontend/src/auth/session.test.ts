@@ -58,7 +58,28 @@ describe("sessionReducer", () => {
   });
 
   it("keeps the key in memory when Mealie rejects it, so the form can show it again", () => {
-    expect(run(checking, { type: "rejected" })).toEqual(rejected);
+    expect(run(checking, { type: "rejected", key: KEY })).toEqual(rejected);
+  });
+
+  it.each([
+    ["logged in", loggedIn],
+    ["unreachable", unreachable],
+  ])(
+    "rejects the key when a later call is refused while %s",
+    (_name, session) => {
+      expect(run(session, { type: "rejected", key: KEY })).toEqual(rejected);
+    },
+  );
+
+  it("ignores a refusal of a key the session no longer holds", () => {
+    const stale: SessionEvent = {
+      type: "rejected",
+      key: requireApiKey("an-older-key-0001"),
+    };
+
+    for (const session of [checking, loggedIn, unreachable]) {
+      expect(run(session, stale)).toBe(session);
+    }
   });
 
   it("keeps the key and says why when the check gets no answer", () => {
@@ -91,12 +112,18 @@ describe("sessionReducer", () => {
     "ignores an answer to a check that isn't running in %s",
     (_name, session) => {
       expect(run(session, { type: "verified", me })).toBe(session);
-      expect(run(session, { type: "rejected" })).toBe(session);
       expect(run(session, { type: "unreachable", cause: "mealie" })).toBe(
         session,
       );
     },
   );
+
+  it.each([
+    ["signed out", signedOut],
+    ["rejected", rejected],
+  ])("ignores a refusal when %s", (_name, session) => {
+    expect(run(session, { type: "rejected", key: KEY })).toBe(session);
+  });
 
   it("does not start a second check while one runs or after login", () => {
     expect(run(checking, { type: "check_requested", credential })).toBe(

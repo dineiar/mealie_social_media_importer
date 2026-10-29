@@ -1,17 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { ApiError, UNKNOWN_ERROR_KIND } from "../api/error";
+import { KEY } from "../test/fixtures";
 import { eventForFailure } from "./classifyFailure";
 
 describe("eventForFailure", () => {
-  it("rejects the key on a 401", () => {
+  it("rejects the key that was sent on a 401", () => {
     expect(
-      eventForFailure(new ApiError(401, "unauthorized", "Key rejected")),
-    ).toEqual({ type: "rejected" });
+      eventForFailure(new ApiError(401, "unauthorized", "Key rejected"), KEY),
+    ).toEqual({ type: "rejected", key: KEY });
   });
 
   it("blames Mealie when the backend says it can't reach it", () => {
     expect(
-      eventForFailure(new ApiError(502, "mealie_unreachable", "Down")),
+      eventForFailure(new ApiError(502, "mealie_unreachable", "Down"), KEY),
     ).toEqual({ type: "unreachable", cause: "mealie" });
   });
 
@@ -25,7 +26,7 @@ describe("eventForFailure", () => {
     ["a failed fetch", new TypeError("Failed to fetch")],
     ["a 200 that isn't JSON", new SyntaxError("Unexpected token <")],
   ])("blames the importer for %s", (_name, error) => {
-    expect(eventForFailure(error)).toEqual({
+    expect(eventForFailure(error, KEY)).toEqual({
       type: "unreachable",
       cause: "backend",
     });

@@ -22,7 +22,7 @@ export type Session =
 export type SessionEvent =
   | { type: "check_requested"; credential: Credential }
   | { type: "verified"; me: Me }
-  | { type: "rejected" }
+  | { type: "rejected"; key: ApiKey }
   | { type: "unreachable"; cause: UnreachableCause }
   | { type: "logged_off" }
   | { type: "stored_key_changed"; change: StoredKeyChange };
@@ -69,7 +69,9 @@ export function sessionReducer(session: Session, event: SessionEvent): Session {
         ? { kind: "logged_in", credential: session.credential, me: event.me }
         : session;
     case "rejected":
-      return session.kind === "checking"
+      return session.kind !== "signed_out" &&
+        session.kind !== "rejected" &&
+        session.credential.key === event.key
         ? { kind: "rejected", credential: session.credential }
         : session;
     case "unreachable":

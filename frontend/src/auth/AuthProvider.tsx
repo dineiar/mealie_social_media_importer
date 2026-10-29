@@ -44,11 +44,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const key = credentialOf(session)?.key ?? null;
-  const api = useMemo(() => createApiClient({ getKey: () => key }), [key]);
+  const api = useMemo(
+    () =>
+      createApiClient({
+        getKey: () => key,
+        onUnauthorized: () => {
+          if (key !== null) {
+            dispatch({ type: "rejected", key });
+          }
+        },
+      }),
+    [key],
+  );
 
-  const checking = session.kind === "checking";
+  const checkedKey =
+    session.kind === "checking" ? session.credential.key : null;
   useEffect(() => {
-    if (!checking) {
+    if (checkedKey === null) {
       return;
     }
     const controller = new AbortController();
@@ -56,12 +68,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (me) => dispatch({ type: "verified", me }),
       (error: unknown) => {
         if (!controller.signal.aborted) {
-          dispatch(eventForFailure(error));
+          dispatch(eventForFailure(error, checkedKey));
         }
       },
     );
     return () => controller.abort();
-  }, [checking, api]);
+  }, [checkedKey, api]);
 
   useEffect(() => {
     switch (session.kind) {
