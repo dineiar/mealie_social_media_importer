@@ -27,6 +27,10 @@ interface Auth {
   logOff(): void;
 }
 
+// The backend gives Mealie 10 s for the user lookup and 10 s for the group lookup, one after the other.
+// Waiting longer means the client only gives up on a backend that has stopped answering.
+const ME_TIMEOUT_MS = 25_000;
+
 const AuthContext = createContext<Auth | null>(null);
 
 export function useAuth(): Auth {
@@ -64,7 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     const controller = new AbortController();
-    api<Me>("/api/me", { signal: controller.signal }).then(
+    api<Me>("/api/me", {
+      signal: controller.signal,
+      timeoutMs: ME_TIMEOUT_MS,
+    }).then(
       (me) => dispatch({ type: "verified", me }),
       (error: unknown) => {
         if (!controller.signal.aborted) {

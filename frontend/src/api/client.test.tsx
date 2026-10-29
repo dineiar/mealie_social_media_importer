@@ -132,6 +132,37 @@ describe("createApiClient", () => {
     expect(onUnauthorized).not.toHaveBeenCalled();
   });
 
+  it("gives up with a TimeoutError when the server doesn't answer in time", async () => {
+    server.use(http.get("/api/me", () => new Promise<Response>(() => {})));
+
+    const error = await createApiClient(withKey)("/api/me", {
+      timeoutMs: 20,
+    }).catch((e: unknown) => e);
+
+    expect(error).toMatchObject({ name: "TimeoutError" });
+  });
+
+  it("returns an answer that comes in time", async () => {
+    server.use(http.get("/api/me", () => HttpResponse.json({ ok: true })));
+
+    const body = await createApiClient(withKey)("/api/me", { timeoutMs: 1000 });
+
+    expect(body).toEqual({ ok: true });
+  });
+
+  it("still stops when the caller aborts before the timeout", async () => {
+    server.use(http.get("/api/me", () => new Promise<Response>(() => {})));
+    const caller = new AbortController();
+
+    const pending = createApiClient(withKey)("/api/me", {
+      signal: caller.signal,
+      timeoutMs: 60_000,
+    }).catch((e: unknown) => e);
+    caller.abort();
+
+    expect(await pending).toMatchObject({ name: "AbortError" });
+  });
+
   it("falls back to the unknown kind when the error body is not JSON", async () => {
     server.use(
       http.get("/api/me", () =>

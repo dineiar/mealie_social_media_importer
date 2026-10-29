@@ -1,8 +1,8 @@
 import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createQueryClient } from "../api/queryClient";
 import {
   aMe,
@@ -150,6 +150,26 @@ describe("AuthProvider", () => {
       expect(storedValues()).toEqual({ local: [], tab: [KEY_TEXT] });
     },
   );
+
+  it("gives up on a backend that never answers, and keeps the key", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+      meRequests(() => new Promise<Response>(() => {}));
+
+      renderProvider();
+      await act(() => vi.advanceTimersByTimeAsync(20_000));
+      expect(screen.getByRole("status")).toHaveTextContent("checking");
+
+      await act(() => vi.advanceTimersByTimeAsync(5_000));
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "unreachable by backend",
+      );
+      expect(storedValues()).toEqual({ local: [KEY_TEXT], tab: [] });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 
   it("recovers when a check is repeated after the outage", async () => {
     localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
