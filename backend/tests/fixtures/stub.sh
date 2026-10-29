@@ -1,0 +1,40 @@
+#!/bin/sh
+case "$1" in
+speak)
+    echo "out $2"
+    echo "err $2" >&2
+    ;;
+exit)
+    echo "partial"
+    exit "$2"
+    ;;
+die)
+    kill -9 $$
+    ;;
+env)
+    /usr/bin/env
+    ;;
+nap)
+    echo $$ >"$2"
+    sleep 60
+    ;;
+cwd)
+    pwd
+    ;;
+stdin)
+    if [ /dev/stdin -ef /dev/null ]; then echo null; else echo open; fi
+    ;;
+flood)
+    head -c 3145728 /dev/zero | tr '\0' e >&2
+    head -c 3145728 /dev/zero | tr '\0' o
+    ;;
+hang | leave)
+    (while :; do echo tick >>"$3"; sleep 0.05; done) &
+    until [ -s "$3" ]; do sleep 0.01; done
+    echo $$ >"$2"
+    echo started
+    if [ "$1" = hang ]; then
+        wait
+    fi
+    ;;
+esac

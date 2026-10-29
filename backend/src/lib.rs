@@ -1,10 +1,14 @@
+#![forbid(unsafe_code)]
+
 pub mod auth;
 pub mod config;
 pub mod error;
 pub mod mealie;
 pub mod platforms;
+pub mod process;
 mod routes;
 pub mod store;
+pub mod tools;
 
 use std::sync::Arc;
 

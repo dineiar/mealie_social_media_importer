@@ -34,6 +34,7 @@ backend/
     store/           in-memory store, manifests, sweeper, signed URLs
     transcribe/      Transcriber trait, ffmpeg extraction, speech API client
     process.rs       child process runner with timeout and kill
+    tools.rs         finds gallery-dl, yt-dlp, ffmpeg and ffprobe and logs their versions
   tests/             integration tests and fixtures
   Dockerfile
 frontend/
@@ -292,7 +293,7 @@ The frontend container has one setting, `BACKEND_URL` (default `http://backend:8
 ## Security rules
 
 - Only hosts registered by a platform reach a downloader. Test against look-alikes such as `instagram.com.evil.test`.
-- External tools run through `tokio::process::Command` with an argument vector, the URL after `--`, never through a shell. Each run has a timeout and `kill_on_drop`, and its captured output is capped.
+- External tools run through `tokio::process::Command` with an argument vector, the URL after `--`, never through a shell. Each run has a timeout and `kill_on_drop`, and its captured output is capped. `process::run` accepts only a `ToolHandle` that `ToolSet::discover` creates, so no caller names a program of its own. The child starts with a cleared environment plus an allowlist (`CHILD_ENV` in `process.rs`) that keeps `TRANSCRIPTION_API_KEY` and the other backend variables away from the tools, and it gets only the absolute `PATH` entries, because an empty one means the import directory.
 - The API key is wrapped in `secrecy::SecretString`. It is never logged, never written to disk, and never put in a URL or an error message.
 - `MAX_MEDIA_MB` caps each download, and per-user and global limits cap concurrent work.
 - Both containers run as non-root users. The backend only writes to `/data` and `/tmp`.

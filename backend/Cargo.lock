@@ -1024,6 +1024,7 @@ dependencies = [
  "jiff",
  "moka",
  "reqwest",
+ "rustix",
  "secrecy",
  "serde",
  "serde_json",
