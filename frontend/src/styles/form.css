@@ -63,6 +63,11 @@
   box-shadow: 0 0 0 4px var(--err-ring);
 }
 
+.input[aria-invalid="true"]:focus-visible {
+  outline: none;
+  outline-offset: 0;
+}
+
 .input[readonly] {
   background: var(--surface-2);
   color: var(--muted);
