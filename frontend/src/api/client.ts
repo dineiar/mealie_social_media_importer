@@ -33,8 +33,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       headers.set("Content-Type", "application/json");
     }
 
-    // Not AbortSignal.timeout, because fake timers can't drive it, and not
-    // AbortSignal.any, because Safari has it only from 17.4.
+    // Safari before 17.4 has no AbortSignal.any, and Vite's default build
+    // target includes Safari 16.4.
     const request = new AbortController();
     const forwardCallerAbort = () => request.abort(signal?.reason);
     signal?.addEventListener("abort", forwardCallerAbort, { once: true });
