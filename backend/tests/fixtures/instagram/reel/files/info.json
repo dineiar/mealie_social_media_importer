@@ -1,0 +1,41 @@
+{
+  "post_id": "4265646449583410485",
+  "post_shortcode": "Dsynth00001",
+  "likes": 42,
+  "liked": false,
+  "pinned": [],
+  "description": "Synthetic caption for a fixture post.\n\nSecond synthetic paragraph.\n\n#synthtag01 #synthtag02 #synthtag03 #synthtag04 #synthtag05",
+  "tags": [
+    "#synthtag01",
+    "#synthtag02",
+    "#synthtag03",
+    "#synthtag04",
+    "#synthtag05"
+  ],
+  "owner_id": "900000001",
+  "username": "synthetic_user_01",
+  "fullname": "Synthetic Author 01",
+  "post_date": "2026-01-02 03:04:05",
+  "date": "2026-01-02 03:04:05",
+  "audio_title": "Original audio",
+  "audio_duration": 86.4,
+  "audio_user": {
+    "strong_id__": "900000001",
+    "pk": "900000001",
+    "pk_id": "900000001",
+    "id": "900000001",
+    "username": "synthetic_user_01",
+    "full_name": "Synthetic Author 01",
+    "is_private": false,
+    "is_verified": true,
+    "profile_pic_id": "9000000000000000002_900000001",
+    "profile_pic_url": "https://scontent.cdninstagram.com/v/synthetic/001.jpg"
+  },
+  "audio_artist": null,
+  "audio_timestamps": null,
+  "type": "post",
+  "post_url": "https://www.instagram.com/p/Dsynth00001/",
+  "count": 2,
+  "category": "instagram",
+  "subcategory": "reel"
+}

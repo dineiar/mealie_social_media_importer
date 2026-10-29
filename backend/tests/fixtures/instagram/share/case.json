@@ -1,0 +1,133 @@
+{
+  "case": "share",
+  "note": "A /share/reel/ link that redirects to a public reel.",
+  "tools": {
+    "gallery-dl": "1.32.18",
+    "yt-dlp": "2026.10.26"
+  },
+  "input_url": "https://www.instagram.com/share/reel/Dsynth0001",
+  "runs": {
+    "gallery-dl.dump-json": {
+      "args": [
+        "--cookies",
+        "<cookies>",
+        "-j",
+        "-o",
+        "videos=merged",
+        "-o",
+        "previews=video",
+        "-o",
+        "sleep-429=0",
+        "-o",
+        "max-posts=1",
+        "--",
+        "<url>"
+      ],
+      "url": "https://www.instagram.com/share/reel/Dsynth0001",
+      "exit_code": 0,
+      "stdout": "gallery-dl.dump-json.stdout.json",
+      "stderr": null,
+      "cookie_changes": {
+        "added": [],
+        "removed": [],
+        "expiry_changed": [],
+        "value_changed": []
+      }
+    },
+    "gallery-dl.download": {
+      "args": [
+        "--cookies",
+        "<cookies>",
+        "-D",
+        "<dir>",
+        "-f",
+        "{num:>02}.{extension}",
+        "--write-info-json",
+        "--write-metadata",
+        "-o",
+        "videos=merged",
+        "-o",
+        "previews=video",
+        "-o",
+        "sleep-429=0",
+        "-o",
+        "max-posts=1",
+        "--filesize-max",
+        "250M",
+        "--",
+        "<url>"
+      ],
+      "url": "https://www.instagram.com/share/reel/Dsynth0001",
+      "exit_code": 0,
+      "stdout": "gallery-dl.download.stdout.txt",
+      "stderr": null,
+      "cookie_changes": {
+        "added": [
+          "csrftoken",
+          "rur"
+        ],
+        "removed": [
+          "ig_pr",
+          "ig_vw",
+          "wd"
+        ],
+        "expiry_changed": [
+          "ds_user_id"
+        ],
+        "value_changed": []
+      },
+      "writes": [
+        {
+          "name": "01.jpg",
+          "kind": "image"
+        },
+        {
+          "name": "01.jpg.json",
+          "kind": "json",
+          "source": "files/01.jpg.json"
+        },
+        {
+          "name": "01.mp4",
+          "kind": "video"
+        },
+        {
+          "name": "01.mp4.json",
+          "kind": "json",
+          "source": "files/01.mp4.json"
+        },
+        {
+          "name": "info.json",
+          "kind": "json",
+          "source": "files/info.json"
+        }
+      ]
+    },
+    "yt-dlp.dump-json": {
+      "args": [
+        "--cookies",
+        "<cookies>",
+        "-j",
+        "<url>"
+      ],
+      "url": "https://www.instagram.com/share/reel/Dsynth0001",
+      "exit_code": 0,
+      "stdout": null,
+      "stderr": null,
+      "cookie_changes": {
+        "added": [
+          "csrftoken",
+          "rur"
+        ],
+        "removed": [
+          "ig_pr",
+          "ig_vw"
+        ],
+        "expiry_changed": [
+          "ds_user_id"
+        ],
+        "value_changed": []
+      },
+      "stdout_json_lines": 1
+    }
+  }
+}

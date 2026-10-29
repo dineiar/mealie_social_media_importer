@@ -1,0 +1,1 @@
+ERROR: [Instagram] Dsynth00001: Video info extraction failed: HTTP Error 400: Bad Request (caused by <HTTPError 400: Bad Request>)

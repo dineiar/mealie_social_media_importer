@@ -1,0 +1,134 @@
+[
+  [
+    2,
+    {
+      "category": "instagram",
+      "count": 1,
+      "date": "2026-01-02 03:04:05",
+      "description": "Synthetic caption for a fixture post. 🍋\n\nSecond synthetic paragraph.",
+      "fullname": "Synthetic Author 01",
+      "liked": false,
+      "likes": 42,
+      "owner_id": "9000001",
+      "pinned": [],
+      "post_date": "2026-01-02 03:04:05",
+      "post_id": "4265646449583410485",
+      "post_shortcode": "Dsynth00001",
+      "post_url": "https://www.instagram.com/p/Dsynth00001/",
+      "subcategory": "post",
+      "type": "post",
+      "username": "synthetic_user_01"
+    }
+  ],
+  [
+    3,
+    "https://scontent.cdninstagram.com/v/synthetic/001.jpg",
+    {
+      "category": "instagram",
+      "count": 1,
+      "date": "2026-01-02 03:04:05",
+      "description": "Synthetic caption for a fixture post. 🍋\n\nSecond synthetic paragraph.",
+      "display_url": "https://scontent.cdninstagram.com/v/synthetic/001.jpg",
+      "extension": "jpg",
+      "filename": "001",
+      "fullname": "Synthetic Author 01",
+      "height": 1800,
+      "height_original": 1800,
+      "liked": false,
+      "likes": 42,
+      "media_id": "4265646449583410485",
+      "num": 1,
+      "owner": {
+        "account_badges": [],
+        "account_type": 2,
+        "aigm_account_label_info": {
+          "is_auto_detected": false,
+          "is_enabled": false,
+          "is_manually_enabled": false
+        },
+        "can_see_quiet_post_attribution": true,
+        "eligible_for_text_app_activation_badge": false,
+        "fan_club_info": {
+          "autosave_to_exclusive_highlight": null,
+          "connected_member_count": null,
+          "fan_club_id": null,
+          "fan_club_name": null,
+          "fan_consideration_page_revamp_eligiblity": null,
+          "has_created_ssc": null,
+          "has_enough_subscribers_for_ssc": null,
+          "is_fan_club_gifting_eligible": null,
+          "is_fan_club_referral_eligible": null,
+          "is_free_trial_eligible": null,
+          "largest_public_bc_id": null,
+          "should_show_playlists_in_profile_tab": null,
+          "subscriber_count": null
+        },
+        "fbid_v2": "90000000000000005",
+        "feed_post_reshare_disabled": false,
+        "friendship_status": {
+          "followed_by": false,
+          "following": false,
+          "is_bestie": false,
+          "is_feed_favorite": false,
+          "is_muting_reel": false,
+          "is_private": false,
+          "is_restricted": false
+        },
+        "full_name": "Synthetic Author 01",
+        "has_anonymous_profile_picture": false,
+        "hd_profile_pic_url_info": {
+          "height": 720,
+          "url": "https://scontent.cdninstagram.com/v/synthetic/002.jpg",
+          "width": 720
+        },
+        "hd_profile_pic_versions": [
+          {
+            "height": 320,
+            "url": "https://scontent.cdninstagram.com/v/synthetic/002.jpg",
+            "width": 320
+          },
+          {
+            "height": 640,
+            "url": "https://scontent.cdninstagram.com/v/synthetic/002.jpg",
+            "width": 640
+          }
+        ],
+        "id": "9000001",
+        "is_active_on_text_post_app": true,
+        "is_embeds_disabled": false,
+        "is_favorite": false,
+        "is_private": false,
+        "is_ring_creator": false,
+        "is_unpublished": false,
+        "is_verified": true,
+        "latest_reel_media": 0,
+        "pk": "9000001",
+        "pk_id": "9000001",
+        "profile_pic_id": "9000000000000000006_9000001",
+        "profile_pic_url": "https://scontent.cdninstagram.com/v/synthetic/002.jpg",
+        "show_account_transparency_details": true,
+        "show_ring_award": false,
+        "strong_id__": "9000001",
+        "text_post_app_is_private": false,
+        "third_party_downloads_enabled": 1,
+        "transparency_product_enabled": false,
+        "user_activation_info": {},
+        "username": "synthetic_user_01"
+      },
+      "owner_id": "9000001",
+      "pinned": [],
+      "post_date": "2026-01-02 03:04:05",
+      "post_id": "4265646449583410485",
+      "post_shortcode": "Dsynth00001",
+      "post_url": "https://www.instagram.com/p/Dsynth00001/",
+      "shortcode": "Dsynth00001",
+      "subcategory": "post",
+      "tagged_users": [],
+      "type": "post",
+      "username": "synthetic_user_01",
+      "video_url": null,
+      "width": 1440,
+      "width_original": 1440
+    }
+  ]
+]

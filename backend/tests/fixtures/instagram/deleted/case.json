@@ -1,0 +1,100 @@
+{
+  "case": "deleted",
+  "note": "A well-formed shortcode that does not exist, standing in for a deleted post.",
+  "tools": {
+    "gallery-dl": "1.32.18",
+    "yt-dlp": "2026.10.26"
+  },
+  "input_url": "https://www.instagram.com/p/Dsynth00001/",
+  "runs": {
+    "gallery-dl.dump-json": {
+      "args": [
+        "--cookies",
+        "<cookies>",
+        "-j",
+        "-o",
+        "videos=merged",
+        "-o",
+        "previews=video",
+        "-o",
+        "sleep-429=0",
+        "-o",
+        "max-posts=1",
+        "--",
+        "<url>"
+      ],
+      "url": "https://www.instagram.com/p/Dsynth00001/",
+      "exit_code": 0,
+      "stdout": "gallery-dl.dump-json.stdout.json",
+      "stderr": null,
+      "cookie_changes": {
+        "added": [],
+        "removed": [],
+        "expiry_changed": [],
+        "value_changed": []
+      }
+    },
+    "gallery-dl.download": {
+      "args": [
+        "--cookies",
+        "<cookies>",
+        "-D",
+        "<dir>",
+        "-f",
+        "{num:>02}.{extension}",
+        "--write-info-json",
+        "--write-metadata",
+        "-o",
+        "videos=merged",
+        "-o",
+        "previews=video",
+        "-o",
+        "sleep-429=0",
+        "-o",
+        "max-posts=1",
+        "--filesize-max",
+        "250M",
+        "--",
+        "<url>"
+      ],
+      "url": "https://www.instagram.com/p/Dsynth00001/",
+      "exit_code": 4,
+      "stdout": null,
+      "stderr": "gallery-dl.download.stderr.txt",
+      "cookie_changes": {
+        "added": [],
+        "removed": [],
+        "expiry_changed": [],
+        "value_changed": []
+      },
+      "writes": []
+    },
+    "yt-dlp.download": {
+      "args": [
+        "--cookies",
+        "<cookies>",
+        "--no-progress",
+        "-o",
+        "<dir>/%(id)s.%(ext)s",
+        "<url>"
+      ],
+      "url": "https://www.instagram.com/p/Dsynth00001/",
+      "exit_code": 1,
+      "stdout": "yt-dlp.download.stdout.txt",
+      "stderr": "yt-dlp.download.stderr.txt",
+      "cookie_changes": {
+        "added": [
+          "csrftoken",
+          "rur"
+        ],
+        "removed": [
+          "ig_pr",
+          "ig_vw"
+        ],
+        "expiry_changed": [],
+        "value_changed": []
+      },
+      "writes": []
+    }
+  }
+}
