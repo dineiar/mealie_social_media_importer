@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { createQueryClient } from "../api/queryClient";
 import {
   aMe,
+  anotherTab,
   flushEffects,
   holdMeAnswer,
   KEY,
@@ -184,5 +185,22 @@ describe("AuthProvider", () => {
     expect(screen.getByRole("status")).toHaveTextContent("signed_out");
     expect(storedValues()).toEqual({ local: [], tab: [] });
     expect(queryClient.getQueryCache().getAll()).toEqual([]);
+  });
+
+  it("empties the query cache when it starts checking the key another tab remembered", async () => {
+    meIs();
+    const queryClient = createQueryClient();
+    renderProvider(queryClient);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Check and remember" }),
+    );
+    await screen.findByText("logged_in");
+    queryClient.setQueryData(["imports"], [{ id: "earlier-import" }]);
+
+    anotherTab.remembers("another-key-9876543210");
+
+    expect(screen.getByRole("status")).toHaveTextContent("checking");
+    expect(queryClient.getQueryCache().getAll()).toEqual([]);
+    await screen.findByText("logged_in");
   });
 });

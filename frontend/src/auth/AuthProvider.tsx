@@ -75,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         queryClient.clear();
         break;
       case "checking":
+        queryClient.clear();
         break;
     }
   }, [session, queryClient]);
