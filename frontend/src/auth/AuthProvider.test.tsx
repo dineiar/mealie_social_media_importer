@@ -2,6 +2,12 @@ import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
+import {
+  type ComponentType,
+  Fragment,
+  type ReactNode,
+  StrictMode,
+} from "react";
 import { describe, expect, it, vi } from "vitest";
 import { createQueryClient } from "../api/queryClient";
 import {
@@ -41,13 +47,18 @@ function SessionProbe() {
   );
 }
 
-function renderProvider(queryClient: QueryClient = createQueryClient()) {
+function renderProvider(
+  queryClient: QueryClient = createQueryClient(),
+  Wrapper: ComponentType<{ children: ReactNode }> = Fragment,
+) {
   render(
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <SessionProbe />
-      </AuthProvider>
-    </QueryClientProvider>,
+    <Wrapper>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <SessionProbe />
+        </AuthProvider>
+      </QueryClientProvider>
+    </Wrapper>,
   );
 }
 
@@ -70,6 +81,32 @@ describe("AuthProvider", () => {
     release();
     expect(await screen.findByText("logged_in")).toBeInTheDocument();
     expect(authorizations).toEqual([`Bearer ${KEY_TEXT}`]);
+  });
+
+  it("logs in under StrictMode, which aborts the first check before it answers", async () => {
+    localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+    meIs();
+
+    renderProvider(createQueryClient(), StrictMode);
+
+    expect(await screen.findByText("logged_in")).toBeInTheDocument();
+  });
+
+  it("saves a typed key only once Mealie has accepted it", async () => {
+    const { release } = holdMeAnswer();
+    renderProvider();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Check and remember" }),
+    );
+    await flushEffects();
+    expect(screen.getByRole("status")).toHaveTextContent("checking");
+    expect(storedValues()).toEqual({ local: [], tab: [] });
+
+    release();
+    await screen.findByText("logged_in");
+    await flushEffects();
+    expect(storedValues()).toEqual({ local: [KEY_TEXT], tab: [] });
   });
 
   it("stores nothing for a key Mealie rejects", async () => {
@@ -195,6 +232,27 @@ describe("AuthProvider", () => {
       vi.useRealTimers();
     }
   });
+
+  it.each([403, 404])(
+    "keeps the key and blames the importer when /api/me answers %i",
+    async (status) => {
+      localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+      meRequests(() =>
+        HttpResponse.json(
+          { error: { kind: "forbidden", message: "No" } },
+          { status },
+        ),
+      );
+
+      renderProvider();
+
+      expect(
+        await screen.findByText("unreachable by backend"),
+      ).toBeInTheDocument();
+      await flushEffects();
+      expect(storedValues()).toEqual({ local: [KEY_TEXT], tab: [] });
+    },
+  );
 
   it("recovers when a check is repeated after the outage", async () => {
     localStorage.setItem("mealie-importer.api-key", KEY_TEXT);

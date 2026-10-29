@@ -442,6 +442,23 @@ describe("the banners", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("keeps Remember me unchecked through Try again", async () => {
+    meRequests(mealieUnreachableResponse);
+    renderApp();
+    await userEvent.click(rememberBox());
+    await connectWith(KEY_TEXT);
+    await screen.findByRole("alert");
+    await flushEffects();
+    expect(storedValues()).toEqual({ local: [], tab: [KEY_TEXT] });
+
+    meIs();
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    await screen.findByText("Ana Souza");
+    await flushEffects();
+    expect(storedValues()).toEqual({ local: [], tab: [KEY_TEXT] });
+  });
+
   it("logs off from an unreachable session", async () => {
     meRequests(mealieUnreachableResponse);
     renderApp();
