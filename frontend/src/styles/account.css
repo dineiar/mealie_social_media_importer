@@ -12,6 +12,7 @@
 }
 
 .avatar {
+  flex: none;
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -54,11 +55,18 @@
 
 @media (max-width: 640px) {
   .account {
+    flex: 0 1 auto;
+    min-width: 0;
     gap: 10px;
   }
 
   .account__user {
+    min-width: 0;
     gap: 8px;
+  }
+
+  .account__names {
+    min-width: 0;
   }
 
   .avatar {
@@ -71,6 +79,14 @@
   .account__divider,
   .btn--logoff svg {
     display: none;
+  }
+
+  .account__name:only-child {
+    display: block;
+    max-width: 12em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .account__handle {

@@ -20,6 +20,24 @@ describe("Account", () => {
     expect(screen.queryByText(/^@/)).not.toBeInTheDocument();
   });
 
+  it.each([
+    ["has no username", aMe({ username: null })],
+    [
+      "has neither a name nor a username",
+      aMe({ username: null, full_name: null }),
+    ],
+  ])(
+    "renders the only line of the names block alone when Mealie %s, the one the narrow layout keeps",
+    (_name, me) => {
+      render(<Account me={me} onLogOff={() => {}} />);
+
+      const lines = document.querySelector(".account__names")?.children;
+
+      expect(lines).toHaveLength(1);
+      expect(lines?.[0]).toHaveClass("account__name");
+    },
+  );
+
   it("shows the handle alone, and its initial, when Mealie has no full name", () => {
     render(<Account me={aMe({ full_name: null })} onLogOff={() => {}} />);
 
