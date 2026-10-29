@@ -7,6 +7,10 @@ import {
   server,
 } from "./server";
 
+// Safari only has AbortSignal.any from 17.4, and Vite's default build target
+// includes Safari 16.4. Tests run without it so no code can depend on it.
+Reflect.deleteProperty(AbortSignal, "any");
+
 beforeAll(() =>
   server.listen({
     onUnhandledFrame: ({ frame }) => recordUnhandledRequest(frame),

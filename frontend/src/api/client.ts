@@ -33,14 +33,21 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       headers.set("Content-Type", "application/json");
     }
 
-    // Not AbortSignal.timeout: fake timers can't drive it, so a test would wait the full timeout.
-    const deadline = new AbortController();
+    // Not AbortSignal.timeout, because fake timers can't drive it, and not
+    // AbortSignal.any, because Safari has it only from 17.4.
+    const request = new AbortController();
+    const forwardCallerAbort = () => request.abort(signal?.reason);
+    if (signal?.aborted) {
+      forwardCallerAbort();
+    } else {
+      signal?.addEventListener("abort", forwardCallerAbort, { once: true });
+    }
     const timer =
       timeoutMs === undefined
         ? undefined
         : setTimeout(
             () =>
-              deadline.abort(
+              request.abort(
                 new DOMException(
                   `No answer within ${timeoutMs} ms`,
                   "TimeoutError",
@@ -51,9 +58,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     try {
       const response = await fetch(path, {
         ...init,
-        signal: AbortSignal.any(
-          signal ? [signal, deadline.signal] : [deadline.signal],
-        ),
+        signal: request.signal,
         headers,
         body: json === undefined ? null : JSON.stringify(json),
       });
@@ -67,6 +72,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       return await response.json();
     } finally {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", forwardCallerAbort);
     }
   };
 }

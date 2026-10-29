@@ -150,6 +150,38 @@ describe("createApiClient", () => {
     expect(await pending).toMatchObject({ name: "AbortError" });
   });
 
+  it("stops without sending anything when the caller's signal is already aborted", async () => {
+    let received = false;
+    server.use(
+      http.get("/api/me", () => {
+        received = true;
+        return HttpResponse.json({});
+      }),
+    );
+    const caller = new AbortController();
+    caller.abort();
+
+    const error = await createApiClient(withKey)("/api/me", {
+      signal: caller.signal,
+      timeoutMs: 1000,
+    }).catch((e: unknown) => e);
+
+    expect(error).toMatchObject({ name: "AbortError" });
+    expect(received).toBe(false);
+  });
+
+  it("makes the same requests in a browser that has no AbortSignal.any", async () => {
+    server.use(http.get("/api/me", () => HttpResponse.json({ ok: true })));
+    expect("any" in AbortSignal).toBe(false);
+
+    const body = await createApiClient(withKey)("/api/me", {
+      signal: new AbortController().signal,
+      timeoutMs: 1000,
+    });
+
+    expect(body).toEqual({ ok: true });
+  });
+
   it("falls back to the unknown kind when the error body is not JSON", async () => {
     server.use(
       http.get("/api/me", () =>
