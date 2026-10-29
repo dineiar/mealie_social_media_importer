@@ -21,7 +21,7 @@ import {
 } from "./test/fixtures";
 
 function renderApp() {
-  render(
+  return render(
     <QueryClientProvider client={createQueryClient()}>
       <App />
     </QueryClientProvider>,
@@ -333,6 +333,53 @@ describe("across tabs", () => {
     expect(authorizations).toEqual([`Bearer ${OTHER_KEY_TEXT}`]);
     await flushEffects();
     expect(storedValues()).toEqual({ local: [OTHER_KEY_TEXT], tab: [] });
+  });
+
+  it("keeps the key another tab remembered when this tab logs in with Remember me off", async () => {
+    renderApp();
+    anotherTab.remembers(KEY_TEXT);
+    const authorizations = meIs(aMe({ full_name: "Bruno Lima" }));
+    await userEvent.click(rememberBox());
+
+    await connectWith(OTHER_KEY_TEXT);
+
+    await screen.findByText("Bruno Lima");
+    await flushEffects();
+    expect(authorizations).toEqual([`Bearer ${OTHER_KEY_TEXT}`]);
+    expect(storedValues()).toEqual({
+      local: [KEY_TEXT],
+      tab: [OTHER_KEY_TEXT],
+    });
+  });
+
+  it("starts again on reload with the key it holds for itself, not the one another tab remembered", async () => {
+    const { unmount } = renderApp();
+    anotherTab.remembers(KEY_TEXT);
+    meIs(aMe({ full_name: "Bruno Lima" }));
+    await userEvent.click(rememberBox());
+    await connectWith(OTHER_KEY_TEXT);
+    await screen.findByText("Bruno Lima");
+    await flushEffects();
+    unmount();
+
+    const authorizations = meIs(aMe({ full_name: "Bruno Lima" }));
+    renderApp();
+
+    await screen.findByText("Bruno Lima");
+    expect(authorizations).toEqual([`Bearer ${OTHER_KEY_TEXT}`]);
+  });
+
+  it("keeps the key another tab remembered when this tab's own key is refused", async () => {
+    renderApp();
+    anotherTab.remembers(KEY_TEXT);
+    meRequests(unauthorizedResponse);
+    await userEvent.click(rememberBox());
+
+    await connectWith(OTHER_KEY_TEXT);
+
+    await screen.findByRole("alert");
+    await flushEffects();
+    expect(storedValues()).toEqual({ local: [KEY_TEXT], tab: [] });
   });
 
   it("leaves a tab alone whose key is not remembered when another tab logs off", async () => {

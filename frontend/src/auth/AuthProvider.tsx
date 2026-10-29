@@ -81,8 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         browserKeyStorage.save(session.credential);
         break;
       case "signed_out":
-      case "rejected":
         browserKeyStorage.clear();
+        queryClient.clear();
+        break;
+      case "rejected":
+        browserKeyStorage.discard(session.credential);
         queryClient.clear();
         break;
       case "checking":

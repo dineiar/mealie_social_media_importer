@@ -8,6 +8,7 @@ type StorageArea = () => Storage;
 export interface KeyStorage {
   read(): Credential | null;
   save(credential: Credential): void;
+  discard(credential: Credential): void;
   clear(): void;
   subscribe(onChange: (key: ApiKey | null) => void): () => void;
 }
@@ -30,18 +31,28 @@ export function createKeyStorage(
 
   return {
     read() {
-      const remembered = keyIn(persistent);
-      if (remembered !== null) {
-        return { key: remembered, remember: true };
-      }
       const forTab = keyIn(tab);
-      return forTab === null ? null : { key: forTab, remember: false };
+      if (forTab !== null) {
+        return { key: forTab, remember: false };
+      }
+      const remembered = keyIn(persistent);
+      return remembered === null ? null : { key: remembered, remember: true };
     },
 
     save({ key, remember }) {
-      const [keep, drop] = remember ? [persistent, tab] : [tab, persistent];
-      attempt(() => drop().removeItem(STORAGE_KEY), undefined);
-      attempt(() => keep().setItem(STORAGE_KEY, key), undefined);
+      if (remember) {
+        attempt(() => tab().removeItem(STORAGE_KEY), undefined);
+        attempt(() => persistent().setItem(STORAGE_KEY, key), undefined);
+      } else {
+        attempt(() => tab().setItem(STORAGE_KEY, key), undefined);
+      }
+    },
+
+    discard({ key, remember }) {
+      const area = remember ? persistent : tab;
+      if (keyIn(area) === key) {
+        attempt(() => area().removeItem(STORAGE_KEY), undefined);
+      }
     },
 
     clear() {

@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { dispatchStorageEvent, KEY, KEY_TEXT } from "../test/fixtures";
+import {
+  dispatchStorageEvent,
+  KEY,
+  KEY_TEXT,
+  OTHER_KEY_TEXT,
+} from "../test/fixtures";
 import type { ApiKey } from "./apiKey";
 import { createKeyStorage, STORAGE_KEY } from "./keyStorage";
 
@@ -29,12 +34,28 @@ describe("createKeyStorage", () => {
     expect(storage.read()).toEqual({ key: KEY, remember: false });
   });
 
-  it("moves the key when the choice changes, so one storage holds it", () => {
+  it("moves a key into localStorage when the tab starts to remember it", () => {
+    storage.save({ key: KEY, remember: false });
     storage.save({ key: KEY, remember: true });
+
+    expect(valuesOf(localStorage)).toEqual([KEY]);
+    expect(valuesOf(sessionStorage)).toEqual([]);
+  });
+
+  it("leaves the remembered key alone when a tab saves a key for itself, so no other tab is logged off", () => {
+    localStorage.setItem(STORAGE_KEY, OTHER_KEY_TEXT);
+
     storage.save({ key: KEY, remember: false });
 
-    expect(valuesOf(localStorage)).toEqual([]);
+    expect(valuesOf(localStorage)).toEqual([OTHER_KEY_TEXT]);
     expect(valuesOf(sessionStorage)).toEqual([KEY]);
+  });
+
+  it("reads the key a tab holds for itself before the remembered one", () => {
+    localStorage.setItem(STORAGE_KEY, OTHER_KEY_TEXT);
+    sessionStorage.setItem(STORAGE_KEY, KEY_TEXT);
+
+    expect(storage.read()).toEqual({ key: KEY, remember: false });
   });
 
   it("forgets the key from both storages", () => {
@@ -46,6 +67,34 @@ describe("createKeyStorage", () => {
     expect(valuesOf(localStorage)).toEqual([]);
     expect(valuesOf(sessionStorage)).toEqual([]);
     expect(storage.read()).toBeNull();
+  });
+
+  it("discards a remembered key from localStorage and leaves the tab's own copy", () => {
+    localStorage.setItem(STORAGE_KEY, KEY_TEXT);
+    sessionStorage.setItem(STORAGE_KEY, OTHER_KEY_TEXT);
+
+    storage.discard({ key: KEY, remember: true });
+
+    expect(valuesOf(localStorage)).toEqual([]);
+    expect(valuesOf(sessionStorage)).toEqual([OTHER_KEY_TEXT]);
+  });
+
+  it("discards a tab's own key from sessionStorage and leaves the remembered key", () => {
+    localStorage.setItem(STORAGE_KEY, OTHER_KEY_TEXT);
+    sessionStorage.setItem(STORAGE_KEY, KEY_TEXT);
+
+    storage.discard({ key: KEY, remember: false });
+
+    expect(valuesOf(localStorage)).toEqual([OTHER_KEY_TEXT]);
+    expect(valuesOf(sessionStorage)).toEqual([]);
+  });
+
+  it("does not discard a newer key that took the place of the one refused", () => {
+    localStorage.setItem(STORAGE_KEY, OTHER_KEY_TEXT);
+
+    storage.discard({ key: KEY, remember: true });
+
+    expect(valuesOf(localStorage)).toEqual([OTHER_KEY_TEXT]);
   });
 
   it.each(["", "   ", "has space"])("reads %j as no key", (stored) => {
@@ -65,6 +114,9 @@ describe("createKeyStorage", () => {
       blockedStorage.save({ key: KEY, remember: true }),
     ).not.toThrow();
     expect(() => blockedStorage.clear()).not.toThrow();
+    expect(() =>
+      blockedStorage.discard({ key: KEY, remember: true }),
+    ).not.toThrow();
   });
 });
 

@@ -74,6 +74,19 @@ describe("a call made through the session's API client", () => {
     expect(queryClient.getQueryCache().getAll()).toEqual([]);
   });
 
+  it("ends only this tab's own key when a call gets a 401, not the key another tab remembered", async () => {
+    sessionStorage.setItem(STORAGE_KEY, KEY_TEXT);
+    localStorage.setItem(STORAGE_KEY, OTHER_KEY_TEXT);
+    meIs();
+    importsAnswer(unauthorizedResponse);
+
+    renderImportScreen();
+
+    expect(await screen.findByText("rejected")).toBeInTheDocument();
+    await flushEffects();
+    expect(storedValues()).toEqual({ local: [OTHER_KEY_TEXT], tab: [] });
+  });
+
   it.each([403, 404, 500])(
     "keeps the session when the call gets a %i",
     async (status) => {
