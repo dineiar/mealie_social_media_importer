@@ -9,7 +9,7 @@ import {
   useReducer,
 } from "react";
 import { type ApiClient, createApiClient } from "../api/client";
-import type { Me } from "../api/types/Me";
+import { parseMe } from "../api/parseMe";
 import { eventForFailure } from "./classifyFailure";
 import { browserKeyStorage } from "./keyStorage";
 import {
@@ -68,17 +68,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     const controller = new AbortController();
-    api<Me>("/api/me", {
+    api<unknown>("/api/me", {
       signal: controller.signal,
       timeoutMs: ME_TIMEOUT_MS,
-    }).then(
-      (me) => dispatch({ type: "verified", me }),
-      (error: unknown) => {
-        if (!controller.signal.aborted) {
-          dispatch(eventForFailure(error, checkedKey));
-        }
-      },
-    );
+    })
+      .then(parseMe)
+      .then(
+        (me) => dispatch({ type: "verified", me }),
+        (error: unknown) => {
+          if (!controller.signal.aborted) {
+            dispatch(eventForFailure(error, checkedKey));
+          }
+        },
+      );
     return () => controller.abort();
   }, [checkedKey, api]);
 

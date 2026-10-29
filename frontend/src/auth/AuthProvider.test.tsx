@@ -151,6 +151,31 @@ describe("AuthProvider", () => {
     },
   );
 
+  it.each([
+    ["an empty object", {}],
+    ["null", null],
+    ["a list", [aMe()]],
+    ["an answer without the AI status", { ...aMe(), ai: undefined }],
+    [
+      "an answer whose AI flag is a string",
+      { ...aMe(), ai: { enabled: "yes" } },
+    ],
+  ])(
+    "keeps the key and blames the importer when /api/me answers %s",
+    async (_name, body) => {
+      sessionStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+      meRequests(() => HttpResponse.json(body));
+
+      renderProvider();
+
+      expect(
+        await screen.findByText("unreachable by backend"),
+      ).toBeInTheDocument();
+      await flushEffects();
+      expect(storedValues()).toEqual({ local: [], tab: [KEY_TEXT] });
+    },
+  );
+
   it("gives up on a backend that never answers, and keeps the key", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {

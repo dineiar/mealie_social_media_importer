@@ -407,6 +407,20 @@ describe("the banners", () => {
     expect(storedValues().local).toEqual([KEY_TEXT]);
   });
 
+  it("says the importer isn't responding when /api/me answers 200 with something that isn't a user", async () => {
+    meRequests(() => HttpResponse.json({}));
+    renderApp();
+
+    await connectWith(KEY_TEXT);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The importer isn't responding",
+    );
+    expect(screen.getByRole("button", { name: "Log off" })).toBeInTheDocument();
+    await flushEffects();
+    expect(storedValues().local).toEqual([KEY_TEXT]);
+  });
+
   it("recovers on Try again once Mealie is back", async () => {
     meRequests(mealieUnreachableResponse);
     renderApp();

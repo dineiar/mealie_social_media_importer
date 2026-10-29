@@ -59,7 +59,7 @@ design/              approved mockups
 3. On load, the frontend calls `GET /api/me` once with the stored key, with no retry. A typed key goes through the same call. The call gives up after 25 s, which is longer than the backend's two sequential 10 s Mealie lookups. The answer decides the session:
    - A 401 clears the key and shows the login form with "Mealie didn't accept this key."
    - A 502 with kind `mealie_unreachable` keeps the key and shows a banner saying Mealie can't be reached.
-   - Any other failure keeps the key and shows a banner saying the importer isn't responding. That covers a rejected `fetch`, a call that times out, nginx's HTML 502 when the backend is down, any other 5xx, and a 200 whose body isn't JSON.
+   - Any other failure keeps the key and shows a banner saying the importer isn't responding. That covers a rejected `fetch`, a call that times out, nginx's HTML 502 when the backend is down, any other 5xx, and a 200 whose body isn't JSON or isn't shaped like the `Me` record.
    - A banner has a "Try again" button that repeats the call. While the call runs, the screen is the login form's checking state.
    - An answer with `ai.enabled` set to false is a normal login. The header shows the user and a banner says recipes can't be created until AI is set up in Mealie.
 4. A 401 on any later call made through the session's API client (`useAuth().api`) ends the session like a 401 on `/api/me`, from a logged in or an unreachable session: the key is cleared and the login form shows "Mealie didn't accept this key." A screen needs no code of its own for this. A 403 or 404 doesn't end the session. A 401 for a key the tab has since replaced is ignored.
