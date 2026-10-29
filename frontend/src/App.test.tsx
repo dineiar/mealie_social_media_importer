@@ -2,7 +2,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { createQueryClient } from "./api/queryClient";
 import { STORAGE_KEY } from "./auth/keyStorage";
@@ -382,18 +382,62 @@ describe("across tabs", () => {
     expect(storedValues()).toEqual({ local: [KEY_TEXT], tab: [] });
   });
 
-  it("leaves a tab alone whose key is not remembered when another tab logs off", async () => {
+  it("keeps a tab whose key is only in its own sessionStorage when another tab discards the remembered key", async () => {
     meIs();
     renderApp();
     await userEvent.click(rememberBox());
     await connectWith(KEY_TEXT);
     await screen.findByText("Ana Souza");
 
-    anotherTab.logsOff();
+    anotherTab.discardsRememberedKey();
     await flushEffects();
 
     expect(screen.getByText("Ana Souza")).toBeInTheDocument();
     expect(storedValues()).toEqual({ local: [], tab: [KEY_TEXT] });
+  });
+
+  it("logs off a tab whose key is only in its own sessionStorage when another tab logs off", async () => {
+    meIs();
+    renderApp();
+    await userEvent.click(rememberBox());
+    await connectWith(KEY_TEXT);
+    await screen.findByText("Ana Souza");
+    await flushEffects();
+    expect(storedValues()).toEqual({ local: [], tab: [KEY_TEXT] });
+
+    anotherTab.logsOff();
+
+    expect(
+      await screen.findByRole("heading", { name: "Connect to Mealie" }),
+    ).toBeInTheDocument();
+    expect(keyField()).toHaveValue("");
+    await flushEffects();
+    expect(storedValues()).toEqual({ local: [], tab: [] });
+  });
+
+  it("empties the key field of a tab that showed a refused key when another tab logs off", async () => {
+    meRequests(unauthorizedResponse);
+    renderApp();
+    await connectWith(KEY_TEXT);
+    await screen.findByRole("alert");
+    expect(keyField()).toHaveValue(KEY_TEXT);
+
+    anotherTab.logsOff();
+
+    await vi.waitFor(() => expect(keyField()).toHaveValue(""));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("keeps what a signed out tab has typed when another tab logs off", async () => {
+    renderApp();
+    await userEvent.click(keyField());
+    await userEvent.paste(KEY_TEXT);
+
+    anotherTab.logsOff();
+    await flushEffects();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(keyField()).toHaveValue(KEY_TEXT);
   });
 
   it("leaves a signed out tab alone when another tab remembers a key", async () => {

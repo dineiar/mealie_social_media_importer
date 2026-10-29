@@ -12,6 +12,7 @@ import { type ApiClient, createApiClient } from "../api/client";
 import { fetchMe } from "../api/me";
 import { eventForFailure } from "./classifyFailure";
 import { browserKeyStorage } from "./keyStorage";
+import { announceLogOff, listenForLogOff } from "./logOffChannel";
 import {
   type Credential,
   credentialOf,
@@ -102,12 +103,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  useEffect(() => listenForLogOff(() => dispatch({ type: "logged_off" })), []);
+
   const check = useCallback(
     (credential: Credential) =>
       dispatch({ type: "check_requested", credential }),
     [],
   );
-  const logOff = useCallback(() => dispatch({ type: "logged_off" }), []);
+  const logOff = useCallback(() => {
+    announceLogOff();
+    dispatch({ type: "logged_off" });
+  }, []);
 
   const auth = useMemo(
     () => ({ session, api, check, logOff }),

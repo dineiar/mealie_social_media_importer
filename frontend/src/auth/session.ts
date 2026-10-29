@@ -76,7 +76,7 @@ export function sessionReducer(session: Session, event: SessionEvent): Session {
           }
         : session;
     case "logged_off":
-      return { kind: "signed_out" };
+      return session.kind === "signed_out" ? session : { kind: "signed_out" };
     case "stored_key_changed":
       return followStoredKey(session, event.key);
   }

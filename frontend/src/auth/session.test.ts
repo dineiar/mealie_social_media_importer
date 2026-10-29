@@ -108,6 +108,10 @@ describe("sessionReducer", () => {
     expect(run(session, { type: "logged_off" })).toEqual(signedOut);
   });
 
+  it("changes nothing when a signed out session is logged off again", () => {
+    expect(run(signedOut, { type: "logged_off" })).toBe(signedOut);
+  });
+
   it.each(Object.entries(everyIdleState))(
     "ignores an answer to a check that isn't running in %s",
     (_name, session) => {

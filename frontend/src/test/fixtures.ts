@@ -3,6 +3,7 @@ import { HttpResponse, http } from "msw";
 import type { Me } from "../api/types/Me";
 import { type ApiKey, parseApiKey } from "../auth/apiKey";
 import { STORAGE_KEY } from "../auth/keyStorage";
+import { announceLogOff } from "../auth/logOffChannel";
 import { server } from "./server";
 
 export const KEY_TEXT = "mealie-key-0123456789";
@@ -101,8 +102,12 @@ export const anotherTab = {
     localStorage.setItem(STORAGE_KEY, key);
     dispatchStorageEvent({ key: STORAGE_KEY, newValue: key });
   },
-  logsOff() {
+  discardsRememberedKey() {
     localStorage.removeItem(STORAGE_KEY);
     dispatchStorageEvent({ key: STORAGE_KEY, newValue: null });
+  },
+  logsOff() {
+    anotherTab.discardsRememberedKey();
+    announceLogOff();
   },
 };

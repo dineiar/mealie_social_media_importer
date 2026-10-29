@@ -27,6 +27,7 @@ import {
 } from "../test/fixtures";
 import { AuthProvider, useAuth } from "./AuthProvider";
 import { STORAGE_KEY } from "./keyStorage";
+import { listenForLogOff } from "./logOffChannel";
 import type { Session } from "./session";
 
 function describeSession(session: Session): string {
@@ -279,5 +280,45 @@ describe("AuthProvider", () => {
     expect(screen.getByRole("status")).toHaveTextContent("checking");
     expect(queryClient.getQueryCache().getAll()).toEqual([]);
     await screen.findByText("logged_in");
+  });
+
+  describe("telling other tabs", () => {
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+    it("tells them once when the user logs off", async () => {
+      meIs();
+      renderProvider();
+      const heard = vi.fn();
+      const stop = listenForLogOff(heard);
+      await userEvent.click(
+        screen.getByRole("button", { name: "Check and remember" }),
+      );
+      await screen.findByText("logged_in");
+
+      await userEvent.click(screen.getByRole("button", { name: "Log off" }));
+
+      await vi.waitFor(() => expect(heard).toHaveBeenCalled());
+      await settle();
+      expect(heard).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it("does not announce a refused key, or a log off it heard from another tab", async () => {
+      meRequests(unauthorizedResponse);
+      const heard = vi.fn();
+      const stop = listenForLogOff(heard);
+
+      renderProvider();
+      await userEvent.click(
+        screen.getByRole("button", { name: "Check and remember" }),
+      );
+      await screen.findByText("rejected");
+      anotherTab.logsOff();
+      await screen.findByText("signed_out");
+      await settle();
+
+      expect(heard).toHaveBeenCalledTimes(1);
+      stop();
+    });
   });
 });
