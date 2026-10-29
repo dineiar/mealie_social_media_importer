@@ -1,5 +1,6 @@
 import type { Me } from "../api/types/Me";
 import { Button } from "./Button";
+import { classNames } from "./classNames";
 import { LogOffIcon } from "./icons";
 
 const NAMELESS_USER = "Mealie user";
@@ -28,7 +29,12 @@ export function Account({
 }) {
   const identity = me === null ? null : identityOf(me);
   return (
-    <div className="account">
+    <div
+      className={classNames(
+        "account",
+        identity && !identity.handle && "account--name-only",
+      )}
+    >
       {identity && (
         <>
           <div className="account__user">
