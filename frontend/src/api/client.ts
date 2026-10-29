@@ -37,10 +37,9 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     // AbortSignal.any, because Safari has it only from 17.4.
     const request = new AbortController();
     const forwardCallerAbort = () => request.abort(signal?.reason);
+    signal?.addEventListener("abort", forwardCallerAbort, { once: true });
     if (signal?.aborted) {
       forwardCallerAbort();
-    } else {
-      signal?.addEventListener("abort", forwardCallerAbort, { once: true });
     }
     const timer =
       timeoutMs === undefined

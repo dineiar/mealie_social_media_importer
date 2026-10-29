@@ -22,6 +22,7 @@ import {
   meRequests,
   neverAnswers,
   OTHER_KEY_TEXT,
+  settle,
   storedValues,
   unauthorizedResponse,
 } from "../test/fixtures";
@@ -283,8 +284,6 @@ describe("AuthProvider", () => {
   });
 
   describe("telling other tabs", () => {
-    const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
-
     it("tells them once when the user logs off", async () => {
       meIs();
       renderProvider();

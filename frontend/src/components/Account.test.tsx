@@ -21,33 +21,24 @@ describe("Account", () => {
   });
 
   it.each([
-    ["has no username", aMe({ username: null })],
+    ["has no username", aMe({ username: null }), true],
     [
       "has neither a name nor a username",
       aMe({ username: null, full_name: null }),
+      true,
     ],
+    ["has a name and a username", aMe(), false],
+    ["has a username only", aMe({ full_name: null }), false],
   ])(
-    "lets the account shrink on a phone when Mealie %s, because a name has no handle to fall back on",
-    (_name, me) => {
+    "lets the account shrink on a phone only when Mealie has no username, so Log off never covers a handle (Mealie %s)",
+    (_name, me, shrinks) => {
       const { container } = render(<Account me={me} onLogOff={() => {}} />);
 
-      expect(container.querySelector(".account")).toHaveClass(
-        "account--name-only",
-      );
-    },
-  );
-
-  it.each([
-    ["a name and a username", aMe()],
-    ["a username only", aMe({ full_name: null })],
-  ])(
-    "keeps the account at its full width on a phone when Mealie has %s, so Log off never covers the handle",
-    (_name, me) => {
-      const { container } = render(<Account me={me} onLogOff={() => {}} />);
-
-      expect(container.querySelector(".account")).not.toHaveClass(
-        "account--name-only",
-      );
+      expect(
+        container
+          .querySelector(".account")
+          ?.classList.contains("account--name-only"),
+      ).toBe(shrinks);
     },
   );
 

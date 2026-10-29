@@ -1,4 +1,5 @@
 import { type ApiKey, parseApiKey } from "./apiKey";
+import { attempt } from "./attempt";
 import type { Credential } from "./session";
 
 export const STORAGE_KEY = "mealie-importer.api-key";
@@ -13,21 +14,16 @@ export interface KeyStorage {
   subscribe(onChange: (key: ApiKey | null) => void): () => void;
 }
 
-// The browser throws on any access to storage when site data is blocked.
-function attempt<T>(action: () => T, fallback: T): T {
-  try {
-    return action();
-  } catch {
-    return fallback;
-  }
-}
-
 export function createKeyStorage(
   persistent: StorageArea,
   tab: StorageArea,
 ): KeyStorage {
   const keyIn = (area: StorageArea) =>
     attempt(() => parseApiKey(area().getItem(STORAGE_KEY)), null);
+  const store = (area: StorageArea, key: ApiKey) =>
+    attempt(() => area().setItem(STORAGE_KEY, key), undefined);
+  const forget = (area: StorageArea) =>
+    attempt(() => area().removeItem(STORAGE_KEY), undefined);
 
   return {
     read() {
@@ -41,23 +37,23 @@ export function createKeyStorage(
 
     save({ key, remember }) {
       if (remember) {
-        attempt(() => tab().removeItem(STORAGE_KEY), undefined);
-        attempt(() => persistent().setItem(STORAGE_KEY, key), undefined);
+        forget(tab);
+        store(persistent, key);
       } else {
-        attempt(() => tab().setItem(STORAGE_KEY, key), undefined);
+        store(tab, key);
       }
     },
 
     discard({ key, remember }) {
       const area = remember ? persistent : tab;
       if (keyIn(area) === key) {
-        attempt(() => area().removeItem(STORAGE_KEY), undefined);
+        forget(area);
       }
     },
 
     clear() {
-      attempt(() => persistent().removeItem(STORAGE_KEY), undefined);
-      attempt(() => tab().removeItem(STORAGE_KEY), undefined);
+      forget(persistent);
+      forget(tab);
     },
 
     subscribe(onChange) {

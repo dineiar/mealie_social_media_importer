@@ -1,13 +1,8 @@
+import { attempt } from "./attempt";
+
 const CHANNEL_NAME = "mealie-importer.log-off";
 
-// A browser may lack BroadcastChannel or throw when it blocks site data.
-function open(): BroadcastChannel | null {
-  try {
-    return new BroadcastChannel(CHANNEL_NAME);
-  } catch {
-    return null;
-  }
-}
+const open = () => attempt(() => new BroadcastChannel(CHANNEL_NAME), null);
 
 export function announceLogOff(): void {
   const channel = open();

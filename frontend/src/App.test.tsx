@@ -16,6 +16,7 @@ import {
   meIs,
   meRequests,
   OTHER_KEY_TEXT,
+  settle,
   storedValues,
   unauthorizedResponse,
 } from "./test/fixtures";
@@ -435,7 +436,7 @@ describe("across tabs", () => {
 
     anotherTab.logsOff();
     await flushEffects();
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await settle();
 
     expect(keyField()).toHaveValue(KEY_TEXT);
   });

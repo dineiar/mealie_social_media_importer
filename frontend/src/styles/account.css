@@ -94,10 +94,6 @@
     min-width: 0;
   }
 
-  .account--name-only .avatar {
-    flex: none;
-  }
-
   .account--name-only .account__name {
     display: block;
     max-width: 12em;

@@ -89,6 +89,9 @@ export async function flushEffects() {
   await act(async () => {});
 }
 
+export const settle = () =>
+  new Promise<void>((resolve) => setTimeout(resolve, 20));
+
 export function dispatchStorageEvent(init: StorageEventInit) {
   act(() => {
     window.dispatchEvent(
