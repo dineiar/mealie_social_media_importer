@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aMe, KEY } from "../test/fixtures";
+import { aMe, KEY, requireApiKey } from "../test/fixtures";
 import {
   type Credential,
   credentialOf,
@@ -21,6 +21,13 @@ const unreachable: Session = {
   credential,
   cause: "mealie",
 };
+
+const lent: Credential = { key: KEY, remember: false };
+const lentSessions = {
+  checking: { kind: "checking", credential: lent },
+  loggedIn: { kind: "logged_in", credential: lent, me },
+  unreachable: { kind: "unreachable", credential: lent, cause: "backend" },
+} satisfies Record<string, Session>;
 
 const everyState = { signedOut, checking, rejected, loggedIn, unreachable };
 const everyIdleState = { signedOut, rejected, loggedIn, unreachable };
@@ -98,6 +105,67 @@ describe("sessionReducer", () => {
     expect(run(loggedIn, { type: "check_requested", credential })).toBe(
       loggedIn,
     );
+  });
+});
+
+describe("a key changing in another tab", () => {
+  const forgotten: SessionEvent = {
+    type: "stored_key_changed",
+    change: { kind: "forgotten" },
+  };
+  const remembered = (key: Credential["key"]): SessionEvent => ({
+    type: "stored_key_changed",
+    change: { kind: "remembered", key },
+  });
+  const otherKey = requireApiKey("another-key-9876543210");
+  const withCredential = { checking, loggedIn, unreachable };
+
+  it.each(Object.entries(withCredential))(
+    "logs off %s when the remembered key is forgotten",
+    (_name, session) => {
+      expect(run(session, forgotten)).toEqual(signedOut);
+    },
+  );
+
+  it.each(Object.entries(lentSessions))(
+    "keeps %s when the key it holds in its own tab is forgotten elsewhere",
+    (_name, session) => {
+      expect(run(session, forgotten)).toBe(session);
+    },
+  );
+
+  it.each([
+    ["signed out", signedOut],
+    ["rejected", rejected],
+  ])("has nothing to follow when %s", (_name, session) => {
+    expect(run(session, forgotten)).toBe(session);
+    expect(run(session, remembered(otherKey))).toBe(session);
+  });
+
+  it.each(Object.entries(lentSessions))(
+    "keeps %s and its answer when another tab remembers the same key",
+    (_name, session) => {
+      expect(run(session, remembered(KEY))).toEqual({
+        ...session,
+        credential: credential,
+      });
+    },
+  );
+
+  it.each(Object.entries(withCredential))(
+    "checks the key another tab remembered in %s",
+    (_name, session) => {
+      expect(run(session, remembered(otherKey))).toEqual({
+        kind: "checking",
+        credential: { key: otherKey, remember: true },
+      });
+    },
+  );
+
+  it("changes nothing when another tab remembers the key this tab already remembers", () => {
+    for (const session of Object.values(withCredential)) {
+      expect(run(session, remembered(KEY))).toBe(session);
+    }
   });
 });
 

@@ -8,6 +8,10 @@ export interface Credential {
 
 export type UnreachableCause = "mealie" | "backend";
 
+export type StoredKeyChange =
+  | { kind: "forgotten" }
+  | { kind: "remembered"; key: ApiKey };
+
 export type Session =
   | { kind: "signed_out" }
   | { kind: "checking"; credential: Credential }
@@ -20,7 +24,8 @@ export type SessionEvent =
   | { type: "verified"; me: Me }
   | { type: "rejected" }
   | { type: "unreachable"; cause: UnreachableCause }
-  | { type: "logged_off" };
+  | { type: "logged_off" }
+  | { type: "stored_key_changed"; change: StoredKeyChange };
 
 export function initialSession(stored: Credential | null): Session {
   return stored === null
@@ -30,6 +35,25 @@ export function initialSession(stored: Credential | null): Session {
 
 export function credentialOf(session: Session): Credential | null {
   return session.kind === "signed_out" ? null : session.credential;
+}
+
+function followStoredKey(session: Session, change: StoredKeyChange): Session {
+  if (session.kind === "signed_out" || session.kind === "rejected") {
+    return session;
+  }
+  const { credential } = session;
+  if (change.kind === "forgotten") {
+    return credential.remember ? { kind: "signed_out" } : session;
+  }
+  if (change.key !== credential.key) {
+    return {
+      kind: "checking",
+      credential: { key: change.key, remember: true },
+    };
+  }
+  return credential.remember
+    ? session
+    : { ...session, credential: { ...credential, remember: true } };
 }
 
 export function sessionReducer(session: Session, event: SessionEvent): Session {
@@ -58,5 +82,7 @@ export function sessionReducer(session: Session, event: SessionEvent): Session {
         : session;
     case "logged_off":
       return { kind: "signed_out" };
+    case "stored_key_changed":
+      return followStoredKey(session, event.change);
   }
 }

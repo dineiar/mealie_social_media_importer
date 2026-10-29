@@ -76,3 +76,28 @@ export function storedValues(): { local: string[]; tab: string[] } {
 export async function flushEffects() {
   await act(async () => {});
 }
+
+const STORED_KEY_NAME = "mealie-importer.api-key";
+
+function announceToOtherTabs(newValue: string | null) {
+  act(() => {
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: STORED_KEY_NAME,
+        newValue,
+        storageArea: localStorage,
+      }),
+    );
+  });
+}
+
+export const anotherTab = {
+  remembers(key: string = KEY_TEXT) {
+    localStorage.setItem(STORED_KEY_NAME, key);
+    announceToOtherTabs(key);
+  },
+  logsOff() {
+    localStorage.removeItem(STORED_KEY_NAME);
+    announceToOtherTabs(null);
+  },
+};

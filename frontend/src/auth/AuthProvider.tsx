@@ -79,6 +79,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [session, queryClient]);
 
+  useEffect(
+    () =>
+      browserKeyStorage.subscribe((change) =>
+        dispatch({ type: "stored_key_changed", change }),
+      ),
+    [],
+  );
+
   const check = useCallback(
     (credential: Credential) =>
       dispatch({ type: "check_requested", credential }),

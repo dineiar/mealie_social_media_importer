@@ -7,6 +7,7 @@ import { App } from "./App";
 import { createQueryClient } from "./api/queryClient";
 import {
   aMe,
+  anotherTab,
   flushEffects,
   holdMeAnswer,
   KEY_TEXT,
@@ -202,6 +203,136 @@ describe("where the key is kept", () => {
     expect(keyField()).toHaveValue(KEY_TEXT);
     await flushEffects();
     expect(storedValues()).toEqual({ local: [], tab: [] });
+  });
+});
+
+describe("across tabs", () => {
+  const OTHER_KEY_TEXT = "another-key-9876543210";
+
+  it("logs this tab off when another tab logs off, so Try again can't save the key back", async () => {
+    const authorizations = meRequests(mealieUnreachableResponse);
+    renderApp();
+    await connectWith(KEY_TEXT);
+    await screen.findByRole("alert");
+    await flushEffects();
+    expect(storedValues().local).toEqual([KEY_TEXT]);
+
+    anotherTab.logsOff();
+    await flushEffects();
+
+    expect(
+      screen.getByRole("heading", { name: "Connect to Mealie" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    expect(keyField()).toHaveValue("");
+    expect(storedValues()).toEqual({ local: [], tab: [] });
+    expect(authorizations).toHaveLength(1);
+  });
+
+  it("logs a logged in tab off when another tab logs off", async () => {
+    meIs();
+    renderApp();
+    await connectWith(KEY_TEXT);
+    await screen.findByText("Ana Souza");
+
+    anotherTab.logsOff();
+
+    expect(
+      await screen.findByRole("heading", { name: "Connect to Mealie" }),
+    ).toBeInTheDocument();
+    await flushEffects();
+    expect(storedValues()).toEqual({ local: [], tab: [] });
+  });
+
+  it("keeps a tab logged off when another tab logs off while its check runs", async () => {
+    localStorage.setItem("mealie-importer.api-key", KEY_TEXT);
+    const { release } = holdMeAnswer();
+    renderApp();
+    await screen.findByRole("button", { name: "Checking your key…" });
+
+    anotherTab.logsOff();
+    release();
+    await flushEffects();
+
+    expect(connectButton()).toBeEnabled();
+    expect(keyField()).toHaveValue("");
+    expect(storedValues()).toEqual({ local: [], tab: [] });
+  });
+
+  it("drops the tab's own copy when another tab remembers the same key", async () => {
+    meIs();
+    renderApp();
+    await userEvent.click(rememberBox());
+    await connectWith(KEY_TEXT);
+    await screen.findByText("Ana Souza");
+    await flushEffects();
+    expect(storedValues()).toEqual({ local: [], tab: [KEY_TEXT] });
+
+    anotherTab.remembers(KEY_TEXT);
+    await flushEffects();
+
+    expect(storedValues()).toEqual({ local: [KEY_TEXT], tab: [] });
+    expect(screen.getByText("Ana Souza")).toBeInTheDocument();
+  });
+
+  it("follows the remembered key afterwards: Try again keeps it in localStorage and a later log off reaches this tab", async () => {
+    meRequests(mealieUnreachableResponse);
+    renderApp();
+    await userEvent.click(rememberBox());
+    await connectWith(KEY_TEXT);
+    await screen.findByRole("alert");
+    anotherTab.remembers(KEY_TEXT);
+
+    meIs();
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await screen.findByText("Ana Souza");
+    await flushEffects();
+    expect(storedValues()).toEqual({ local: [KEY_TEXT], tab: [] });
+
+    anotherTab.logsOff();
+    expect(
+      await screen.findByRole("heading", { name: "Connect to Mealie" }),
+    ).toBeInTheDocument();
+  });
+
+  it("checks the key another tab remembered when it differs from this tab's key", async () => {
+    meIs();
+    renderApp();
+    await userEvent.click(rememberBox());
+    await connectWith(KEY_TEXT);
+    await screen.findByText("Ana Souza");
+
+    const authorizations = meIs(aMe({ full_name: "Bruno Lima" }));
+    anotherTab.remembers(OTHER_KEY_TEXT);
+
+    expect(await screen.findByText("Bruno Lima")).toBeInTheDocument();
+    expect(authorizations).toEqual([`Bearer ${OTHER_KEY_TEXT}`]);
+    await flushEffects();
+    expect(storedValues()).toEqual({ local: [OTHER_KEY_TEXT], tab: [] });
+  });
+
+  it("leaves a tab alone whose key is not remembered when another tab logs off", async () => {
+    meIs();
+    renderApp();
+    await userEvent.click(rememberBox());
+    await connectWith(KEY_TEXT);
+    await screen.findByText("Ana Souza");
+
+    anotherTab.logsOff();
+    await flushEffects();
+
+    expect(screen.getByText("Ana Souza")).toBeInTheDocument();
+    expect(storedValues()).toEqual({ local: [], tab: [KEY_TEXT] });
+  });
+
+  it("leaves a signed out tab alone when another tab remembers a key", async () => {
+    renderApp();
+
+    anotherTab.remembers(KEY_TEXT);
+    await flushEffects();
+
+    expect(connectButton()).toBeEnabled();
+    expect(keyField()).toHaveValue("");
   });
 });
 

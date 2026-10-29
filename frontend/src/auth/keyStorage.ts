@@ -1,5 +1,5 @@
 import { parseApiKey } from "./apiKey";
-import type { Credential } from "./session";
+import type { Credential, StoredKeyChange } from "./session";
 
 const STORAGE_KEY = "mealie-importer.api-key";
 
@@ -9,6 +9,7 @@ export interface KeyStorage {
   read(): Credential | null;
   save(credential: Credential): void;
   clear(): void;
+  subscribe(onChange: (change: StoredKeyChange) => void): () => void;
 }
 
 // The browser throws on any access to storage when site data is blocked.
@@ -46,6 +47,23 @@ export function createKeyStorage(
     clear() {
       attempt(() => persistent().removeItem(STORAGE_KEY), undefined);
       attempt(() => tab().removeItem(STORAGE_KEY), undefined);
+    },
+
+    subscribe(onChange) {
+      function onStorage(event: StorageEvent) {
+        const ofRememberedKey =
+          event.storageArea === attempt(persistent, null) &&
+          (event.key === STORAGE_KEY || event.key === null);
+        if (!ofRememberedKey) {
+          return;
+        }
+        const key = parseApiKey(event.newValue);
+        onChange(
+          key === null ? { kind: "forgotten" } : { kind: "remembered", key },
+        );
+      }
+      window.addEventListener("storage", onStorage);
+      return () => window.removeEventListener("storage", onStorage);
     },
   };
 }

@@ -25,6 +25,17 @@ export function LoginPage() {
 
   const checking = session.kind === "checking";
   const rejected = session.kind === "rejected";
+  const signedOut = session.kind === "signed_out";
+
+  const [wasSignedOut, setWasSignedOut] = useState(signedOut);
+  if (signedOut !== wasSignedOut) {
+    setWasSignedOut(signedOut);
+    if (signedOut) {
+      setApiKey("");
+      setRemember(true);
+      setRevealed(false);
+    }
+  }
 
   useEffect(() => {
     if (rejected) {
